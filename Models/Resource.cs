@@ -1,0 +1,48 @@
+namespace DevPortal.Models;
+
+public class Resource
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string ResourceGroup { get; set; } = string.Empty;
+    public string Location { get; set; } = string.Empty;
+    public string Status { get; set; } = "Unknown";
+    public DateTime LastViewed { get; set; } = DateTime.UtcNow;
+    public bool IsFavorite { get; set; } = false;
+    public Dictionary<string, string> Tags { get; set; } = new();
+    
+    public string GetIcon()
+    {
+        return Type.ToLower() switch
+        {
+            "app service" => "&#127760;",
+            "app service plan" => "&#128230;",
+            "load balancer" => "&#9878;",
+            "template spec" => "&#128203;",
+            "resource group" => "&#128193;",
+            "storage account" => "&#128190;",
+            "key vault" => "&#128274;",
+            "sql database" => "&#128202;",
+            "virtual machine" => "&#128421;",
+            "function app" => "&#9889;",
+            _ => "&#128230;"
+        };
+    }
+    
+    public string GetTimeAgo()
+    {
+        var timeSpan = DateTime.UtcNow - LastViewed;
+        
+        if (timeSpan.TotalMinutes < 60)
+            return $"{(int)timeSpan.TotalMinutes} minutes ago";
+        if (timeSpan.TotalHours < 24)
+            return $"{(int)timeSpan.TotalHours} hours ago";
+        if (timeSpan.TotalDays < 7)
+            return $"{(int)timeSpan.TotalDays} days ago";
+        if (timeSpan.TotalDays < 30)
+            return $"{(int)(timeSpan.TotalDays / 7)} weeks ago";
+        
+        return $"{(int)(timeSpan.TotalDays / 30)} months ago";
+    }
+}

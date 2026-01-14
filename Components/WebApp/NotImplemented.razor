@@ -1,0 +1,48 @@
+@using DevPortal.Models
+
+<div class="card" style="text-align: center; padding: 60px 40px;">
+    <div style="font-size: 64px; margin-bottom: 20px;">&#128679;</div>
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 10px; color: #323130;">
+        @Title
+    </h2>
+    <p style="color: var(--azure-dark-gray); margin-bottom: 30px; max-width: 500px; margin-left: auto; margin-right: auto;">
+        This feature is not yet implemented. Check back later for updates.
+    </p>
+    
+    <div style="background: var(--azure-gray); padding: 20px; border-radius: 4px; max-width: 400px; margin: 0 auto;">
+        <div style="font-size: 14px; color: var(--azure-dark-gray); margin-bottom: 10px;">
+            <strong>Section:</strong> @SectionName
+        </div>
+        @if (!string.IsNullOrEmpty(WebAppName))
+        {
+            <div style="font-size: 14px; color: var(--azure-dark-gray);">
+                <strong>Web App:</strong> @WebAppName
+            </div>
+        }
+    </div>
+    
+    <div style="margin-top: 30px;">
+        <button class="btn btn-primary" @onclick="GoBack">
+            &#8592; Go Back
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string SectionName { get; set; } = "Unknown";
+
+    [Parameter]
+    public string Title { get; set; } = "Coming Soon";
+
+    [Parameter]
+    public string WebAppName { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback OnGoBack { get; set; }
+
+    private async Task GoBack()
+    {
+        await OnGoBack.InvokeAsync();
+    }
+}

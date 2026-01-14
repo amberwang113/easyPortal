@@ -1,0 +1,105 @@
+@using DevPortal.Models
+
+<div class="card">
+    <div class="card-title">Essentials</div>
+    <div class="key-value-list">
+        <div class="key-value-item">
+            <div class="key-value-key">Status</div>
+            <div class="key-value-value">
+                <span class="status-badge @GetStatusClass(WebApp.Status)">@WebApp.Status</span>
+            </div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">URL</div>
+            <div class="key-value-value">
+                <a href="@WebApp.Url" target="_blank" style="color: var(--azure-blue);">@WebApp.Url</a>
+            </div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">Resource Group</div>
+            <div class="key-value-value">@WebApp.ResourceGroup</div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">Location</div>
+            <div class="key-value-value">@WebApp.Location</div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">Runtime</div>
+            <div class="key-value-value">@WebApp.Runtime</div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">Created</div>
+            <div class="key-value-value">@WebApp.CreatedDate.ToString("yyyy-MM-dd HH:mm")</div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">Last Modified</div>
+            <div class="key-value-value">@WebApp.LastModifiedDate.ToString("yyyy-MM-dd HH:mm")</div>
+        </div>
+    </div>
+</div>
+
+@if (WebApp.AppServicePlan != null)
+{
+    <div class="card">
+        <div class="card-title">App Service Plan</div>
+        <div class="key-value-list">
+            <div class="key-value-item">
+                <div class="key-value-key">Name</div>
+                <div class="key-value-value">@WebApp.AppServicePlan.Name</div>
+            </div>
+            <div class="key-value-item">
+                <div class="key-value-key">Pricing Tier</div>
+                <div class="key-value-value">@WebApp.AppServicePlan.Tier (@WebApp.AppServicePlan.Size)</div>
+            </div>
+            <div class="key-value-item">
+                <div class="key-value-key">Operating System</div>
+                <div class="key-value-value">@WebApp.AppServicePlan.OperatingSystem</div>
+            </div>
+            <div class="key-value-item">
+                <div class="key-value-key">Location</div>
+                <div class="key-value-value">@WebApp.AppServicePlan.Location</div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-title">Resource Information</div>
+    <div class="key-value-list">
+        <div class="key-value-item">
+            <div class="key-value-key">Resource ID</div>
+            <div class="key-value-value" style="font-family: monospace; font-size: 12px;">@WebApp.Id</div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">HTTPS Only</div>
+            <div class="key-value-value">@(WebApp.HttpsOnly ? "Enabled" : "Disabled")</div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">Always On</div>
+            <div class="key-value-value">@(WebApp.AlwaysOn ? "Enabled" : "Disabled")</div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">HTTP Version</div>
+            <div class="key-value-value">@WebApp.HttpVersion</div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">WebSockets</div>
+            <div class="key-value-value">@(WebApp.WebSocketsEnabled ? "Enabled" : "Disabled")</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public WebApp WebApp { get; set; } = null!;
+
+    private string GetStatusClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "running" => "status-running",
+            "stopped" => "status-stopped",
+            _ => "status-warning"
+        };
+    }
+}

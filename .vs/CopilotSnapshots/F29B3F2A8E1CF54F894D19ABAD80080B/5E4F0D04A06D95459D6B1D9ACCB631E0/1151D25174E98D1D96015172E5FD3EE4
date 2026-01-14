@@ -1,0 +1,168 @@
+﻿@using DevPortal.Models
+@using DevPortal.Services
+@inject ApiService ApiService
+
+<div class="card">
+    <div class="card-title">Application Insights</div>
+    
+    <div class="form-group">
+        <label class="form-label">
+            <input type="checkbox" @bind="WebApp.ApplicationInsightsEnabled" /> Enable Application Insights
+        </label>
+        <div class="form-help">Monitor your application's performance, availability, and usage.</div>
+    </div>
+    
+    @if (WebApp.ApplicationInsightsEnabled)
+    {
+        <div class="form-group">
+            <label class="form-label">Instrumentation Key</label>
+            <input type="text" class="form-input" @bind="WebApp.ApplicationInsightsKey" placeholder="Enter instrumentation key" />
+            <div class="form-help">The instrumentation key for your Application Insights resource.</div>
+        </div>
+        
+        <div class="alert alert-success">
+            Application Insights is enabled and collecting telemetry data.
+        </div>
+    }
+</div>
+
+<div class="card">
+    <div class="card-title">Metrics</div>
+    
+    @if (isLoadingMetrics)
+    {
+        <div style="text-align: center; padding: 20px;">
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 10px;">Loading metrics...</p>
+        </div>
+    }
+    else if (metrics.Any())
+    {
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            @foreach (var metric in metrics)
+            {
+                <div style="border: 1px solid var(--azure-border); padding: 15px; border-radius: 2px;">
+                    <div style="font-size: 12px; color: var(--azure-dark-gray); margin-bottom: 5px;">@metric.Key</div>
+                    <div style="font-size: 24px; font-weight: 600; color: var(--azure-blue);">
+                        @FormatMetricValue(metric.Key, metric.Value)
+                    </div>
+                </div>
+            }
+        </div>
+        
+        <button class="btn btn-secondary" @onclick="RefreshMetrics">&#8635; Refresh</button>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            No metrics available at the moment.
+        </div>
+    }
+</div>
+
+<div class="card">
+    <div class="card-title">Live Metrics</div>
+    
+    <div style="height: 300px; border: 1px solid var(--azure-border); display: flex; align-items: center; justify-content: center; background: #fafafa;">
+        <div style="text-align: center; color: var(--azure-dark-gray);">
+            <div style="font-size: 48px; margin-bottom: 10px;">&#128202;</div>
+            <div>Live metrics chart will be displayed here</div>
+            <div style="font-size: 12px; margin-top: 5px;">Real-time monitoring data</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">Logs</div>
+    
+    <div class="form-help" style="margin-bottom: 15px;">
+        View application logs and diagnostic information.
+    </div>
+    
+    <div style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 2px; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; max-height: 300px; overflow-y: auto;">
+        <div>[2024-01-15 10:30:22] INFO: Application started successfully</div>
+        <div>[2024-01-15 10:30:25] INFO: Database connection established</div>
+        <div>[2024-01-15 10:30:28] INFO: Listening on http://localhost:5000</div>
+        <div>[2024-01-15 10:31:15] INFO: HTTP GET / responded 200 in 45ms</div>
+        <div>[2024-01-15 10:32:03] WARN: High memory usage detected: 85%</div>
+        <div>[2024-01-15 10:33:10] INFO: Cache refreshed successfully</div>
+        <div style="color: #ce9178;">[2024-01-15 10:35:00] INFO: Waiting for logs...</div>
+    </div>
+    
+    <div style="margin-top: 15px;">
+        <button class="btn btn-secondary">&#8635; Refresh Logs</button>
+        <button class="btn btn-secondary">&#128229; Download Logs</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">Alerts</div>
+    
+    <div class="form-help" style="margin-bottom: 15px;">
+        Configure alerts to be notified when certain conditions are met.
+    </div>
+    
+    <div class="alert alert-info">
+        No alerts configured. Create alerts to monitor your application's health.
+    </div>
+    
+    <div style="margin-top: 15px;">
+        <button class="btn btn-secondary">+ Create Alert Rule</button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public WebApp WebApp { get; set; } = null!;
+
+    private Dictionary<string, double> metrics = new();
+    private bool isLoadingMetrics = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMetrics();
+    }
+
+    private async Task LoadMetrics()
+    {
+        isLoadingMetrics = true;
+        StateHasChanged();
+        
+        try
+        {
+            metrics = await ApiService.GetMetricsAsync(WebApp.Id);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading metrics: {ex.Message}");
+            metrics = new Dictionary<string, double>();
+        }
+        finally
+        {
+            isLoadingMetrics = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshMetrics()
+    {
+        await LoadMetrics();
+    }
+
+    private void OnInsightsToggle()
+    {
+        StateHasChanged();
+    }
+
+    private string FormatMetricValue(string metricName, double value)
+    {
+        return metricName switch
+        {
+            "CPU" => $"{value:F1}%",
+            "Memory" => $"{value:F1}%",
+            "Requests" => $"{value:N0}",
+            "ResponseTime" => $"{value:F0}ms",
+            _ => $"{value:F2}"
+        };
+    }
+}

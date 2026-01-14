@@ -1,0 +1,218 @@
+﻿@using DevPortal.Models
+
+<div class="card">
+    <div class="card-title">Scale Out (Instance Count)</div>
+    
+    <div class="key-value-list" style="margin-bottom: 20px;">
+        <div class="key-value-item">
+            <div class="key-value-key">Current Instances</div>
+            <div class="key-value-value">
+                <strong style="font-size: 18px; color: var(--azure-blue);">@WebApp.CurrentInstances</strong>
+            </div>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label class="form-label">
+            <input type="checkbox" @bind="WebApp.AutoScaleEnabled" @onchange="OnAutoScaleToggle" /> Enable Autoscale
+        </label>
+        <div class="form-help">Automatically scale your app based on metrics or schedule.</div>
+    </div>
+    
+    @if (WebApp.AutoScaleEnabled)
+    {
+        <div class="form-group">
+            <label class="form-label">Minimum Instances</label>
+            <input type="number" class="form-input" @bind="WebApp.MinInstances" min="1" max="100" />
+            <div class="form-help">The minimum number of instances that will always run.</div>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Maximum Instances</label>
+            <input type="number" class="form-input" @bind="WebApp.MaxInstances" min="1" max="100" />
+            <div class="form-help">The maximum number of instances that can be created.</div>
+        </div>
+    }
+    else
+    {
+        <div class="form-group">
+            <label class="form-label">Manual Instance Count</label>
+            <input type="number" class="form-input" @bind="WebApp.CurrentInstances" min="1" max="100" />
+            <div class="form-help">Set a fixed number of instances.</div>
+        </div>
+    }
+</div>
+
+@if (WebApp.AutoScaleEnabled)
+{
+    <div class="card">
+        <div class="card-title">Scale Rules</div>
+        
+        <div class="form-help" style="margin-bottom: 15px;">
+            Define rules to automatically scale your app based on metrics.
+        </div>
+        
+        @if (WebApp.ScaleRules.Any())
+        {
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                @foreach (var rule in WebApp.ScaleRules)
+                {
+                    <div style="border: 1px solid var(--azure-border); padding: 15px; border-radius: 2px;">
+                        <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 10px;">
+                            <div style="flex: 1;">
+                                <strong>@rule.MetricName</strong>
+                            </div>
+                            <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;" @onclick="() => RemoveRule(rule)">Remove</button>
+                        </div>
+                        
+                        <div class="key-value-list">
+                            <div class="key-value-item">
+                                <div class="key-value-key">Condition</div>
+                                <div class="key-value-value">
+                                    @rule.MetricName @rule.Operator @rule.Threshold for @rule.Duration minutes
+                                </div>
+                            </div>
+                            <div class="key-value-item">
+                                <div class="key-value-key">Action</div>
+                                <div class="key-value-value">
+                                    @rule.Action instance count by @rule.InstanceCount
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">
+                No scale rules configured. Add rules to enable automatic scaling.
+            </div>
+        }
+        
+        <div style="margin-top: 15px;">
+            <button class="btn btn-secondary" @onclick="AddRule">+ Add Rule</button>
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-title">Scale Up (Pricing Tier)</div>
+    
+    @if (WebApp.AppServicePlan != null)
+    {
+        <div class="key-value-list" style="margin-bottom: 20px;">
+            <div class="key-value-item">
+                <div class="key-value-key">Current Tier</div>
+                <div class="key-value-value">
+                    <strong>@WebApp.AppServicePlan.Tier (@WebApp.AppServicePlan.Size)</strong>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-help" style="margin-bottom: 15px;">
+            Choose a different pricing tier to scale up or down your app's resources.
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            @foreach (var tier in GetPricingTiers())
+            {
+                <div style="border: 1px solid var(--azure-border); padding: 15px; border-radius: 2px; cursor: pointer; @(tier.Name == WebApp.AppServicePlan.Tier ? "background: var(--azure-light-blue); border-color: var(--azure-blue);" : "")"
+                     @onclick="() => SelectTier(tier)">
+                    <div style="font-weight: 600; margin-bottom: 5px;">@tier.Name</div>
+                    <div style="font-size: 12px; color: var(--azure-dark-gray); margin-bottom: 10px;">@tier.Sku</div>
+                    <div style="font-size: 12px;">
+                        <div>@tier.Cores Core(s)</div>
+                        <div>@tier.RamGB GB RAM</div>
+                        <div>@tier.StorageGB GB Storage</div>
+                    </div>
+                    <div style="margin-top: 10px; font-weight: 600; color: var(--azure-blue);">
+                        $@tier.PricePerHour/hour
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<div style="margin-top: 20px;">
+    <button class="btn btn-primary" @onclick="Save">Save</button>
+    <button class="btn btn-secondary" @onclick="Discard">Discard</button>
+</div>
+
+@code {
+    [Parameter]
+    public WebApp WebApp { get; set; } = null!;
+    
+    [Parameter]
+    public EventCallback OnSave { get; set; }
+
+    private void OnAutoScaleToggle()
+    {
+        if (WebApp.AutoScaleEnabled)
+        {
+            WebApp.MinInstances = 1;
+            WebApp.MaxInstances = 10;
+        }
+        StateHasChanged();
+    }
+
+    private void AddRule()
+    {
+        // TODO: Implement add rule dialog
+        var rule = new ScaleRule
+        {
+            MetricName = "CPU Percentage",
+            Operator = "GreaterThan",
+            Threshold = 70,
+            Duration = 5,
+            Action = "Increase",
+            InstanceCount = 1
+        };
+        WebApp.ScaleRules.Add(rule);
+        StateHasChanged();
+    }
+
+    private void RemoveRule(ScaleRule rule)
+    {
+        WebApp.ScaleRules.Remove(rule);
+        StateHasChanged();
+    }
+
+    private void SelectTier(PricingTier tier)
+    {
+        if (WebApp.AppServicePlan != null)
+        {
+            WebApp.AppServicePlan.Tier = tier.Name;
+            WebApp.AppServicePlan.Size = tier.Sku;
+            WebApp.AppServicePlan.PricingTier = tier;
+        }
+        StateHasChanged();
+    }
+
+    private List<PricingTier> GetPricingTiers()
+    {
+        return new List<PricingTier>
+        {
+            new PricingTier { Name = "Free", Sku = "F1", Cores = 1, RamGB = 1, StorageGB = 1, PricePerHour = 0 },
+            new PricingTier { Name = "Basic", Sku = "B1", Cores = 1, RamGB = 1.75, StorageGB = 10, PricePerHour = 0.075m },
+            new PricingTier { Name = "Basic", Sku = "B2", Cores = 2, RamGB = 3.5, StorageGB = 10, PricePerHour = 0.15m },
+            new PricingTier { Name = "Standard", Sku = "S1", Cores = 1, RamGB = 1.75, StorageGB = 50, PricePerHour = 0.10m },
+            new PricingTier { Name = "Standard", Sku = "S2", Cores = 2, RamGB = 3.5, StorageGB = 50, PricePerHour = 0.20m },
+            new PricingTier { Name = "Premium", Sku = "P1v2", Cores = 1, RamGB = 3.5, StorageGB = 250, PricePerHour = 0.169m },
+            new PricingTier { Name = "Premium", Sku = "P2v2", Cores = 2, RamGB = 7, StorageGB = 250, PricePerHour = 0.338m },
+            new PricingTier { Name = "Premium", Sku = "P3v2", Cores = 4, RamGB = 14, StorageGB = 250, PricePerHour = 0.676m }
+        };
+    }
+
+    private async Task Save()
+    {
+        await OnSave.InvokeAsync();
+    }
+
+    private void Discard()
+    {
+        // TODO: Reload original values
+        StateHasChanged();
+    }
+}

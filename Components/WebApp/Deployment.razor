@@ -1,0 +1,121 @@
+@using DevPortal.Models
+
+<div class="card">
+    <div class="card-title">Deployment Center</div>
+    
+    <div class="key-value-list">
+        <div class="key-value-item">
+            <div class="key-value-key">Deployment Method</div>
+            <div class="key-value-value">@WebApp.DeploymentMethod</div>
+        </div>
+        <div class="key-value-item">
+            <div class="key-value-key">Last Deployment</div>
+            <div class="key-value-value">
+                @if (WebApp.LastDeploymentDate.HasValue)
+                {
+                    @WebApp.LastDeploymentDate.Value.ToString("yyyy-MM-dd HH:mm")
+                    <span class="status-badge @GetDeploymentStatusClass(WebApp.LastDeploymentStatus)">
+                        @WebApp.LastDeploymentStatus
+                    </span>
+                }
+                else
+                {
+                    <span>No deployments yet</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">Source Control</div>
+    
+    <div class="form-group">
+        <label class="form-label">Deployment Method</label>
+        <select class="form-select" @bind="WebApp.DeploymentMethod">
+            <option value="None">None</option>
+            <option value="GitHub">GitHub</option>
+            <option value="GitLab">GitLab</option>
+            <option value="Azure DevOps">Azure DevOps</option>
+            <option value="Bitbucket">Bitbucket</option>
+            <option value="Local Git">Local Git</option>
+            <option value="FTP">FTP</option>
+        </select>
+    </div>
+    
+    @if (WebApp.DeploymentMethod != "None" && WebApp.DeploymentMethod != "FTP")
+    {
+        <div class="form-group">
+            <label class="form-label">Repository URL</label>
+            <input type="text" class="form-input" @bind="WebApp.RepositoryUrl" placeholder="https://github.com/username/repository" />
+            <div class="form-help">The URL of your Git repository.</div>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Branch</label>
+            <input type="text" class="form-input" @bind="WebApp.Branch" placeholder="main" />
+            <div class="form-help">The branch to deploy from.</div>
+        </div>
+    }
+</div>
+
+<div class="card">
+    <div class="card-title">Deployment History</div>
+    
+    <div class="alert alert-info">
+        Deployment history will be displayed here once you configure a deployment source and complete your first deployment.
+    </div>
+    
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Commit</th>
+                <th>Author</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="5" style="text-align: center; color: var(--azure-dark-gray); padding: 30px;">
+                    No deployment history available
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top: 20px;">
+    <button class="btn btn-primary" @onclick="Save">Save</button>
+    <button class="btn btn-secondary" @onclick="Sync">&#8635; Sync</button>
+</div>
+
+@code {
+    [Parameter]
+    public WebApp WebApp { get; set; } = null!;
+    
+    [Parameter]
+    public EventCallback OnSave { get; set; }
+
+    private async Task Save()
+    {
+        await OnSave.InvokeAsync();
+    }
+
+    private async Task Sync()
+    {
+        // TODO: Implement sync with deployment source
+        Console.WriteLine("Sync deployment - To be implemented");
+    }
+
+    private string GetDeploymentStatusClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "success" => "status-running",
+            "failed" => "status-stopped",
+            _ => "status-warning"
+        };
+    }
+}

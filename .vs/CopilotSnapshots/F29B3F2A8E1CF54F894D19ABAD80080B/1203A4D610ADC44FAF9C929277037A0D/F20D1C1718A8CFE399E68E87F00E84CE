@@ -1,0 +1,128 @@
+﻿@page "/webapps"
+@layout PortalLayout
+@using DevPortal.Models
+@using DevPortal.Services
+@inject ApiService ApiService
+@inject NavigationManager Navigation
+
+<div class="page-header">
+    <div class="page-title">Web Apps</div>
+    <div class="page-subtitle">Manage your web applications</div>
+    <div class="page-actions">
+        <button class="btn btn-primary" @onclick="CreateNewWebApp">+ Create</button>
+        <button class="btn btn-secondary" @onclick="RefreshList">&#8635; Refresh</button>
+    </div>
+</div>
+
+<div class="content-wrapper">
+    @if (isLoading)
+    {
+        <div style="text-align: center; padding: 40px;">
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 15px;">Loading web apps...</p>
+        </div>
+    }
+    else if (webApps == null || !webApps.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-state-icon">&#128230;</div>
+            <div class="empty-state-title">No web apps found</div>
+            <div class="empty-state-description">
+                Create your first web app to get started
+            </div>
+            <button class="btn btn-primary" @onclick="CreateNewWebApp">Create Web App</button>
+        </div>
+    }
+    else
+    {
+        <div class="resource-list">
+            <div class="resource-list-header">
+                <div>Name</div>
+                <div>Resource Group</div>
+                <div>Location</div>
+                <div>Status</div>
+                <div>Runtime</div>
+            </div>
+            @foreach (var webApp in webApps)
+            {
+                <div class="resource-list-item" @onclick="() => ViewWebApp(webApp.Id)">
+                    <div class="resource-name">@webApp.Name</div>
+                    <div>@webApp.ResourceGroup</div>
+                    <div>@webApp.Location</div>
+                    <div>
+                        <span class="status-badge @GetStatusClass(webApp.Status)">
+                            @webApp.Status
+                        </span>
+                    </div>
+                    <div>@webApp.Runtime</div>
+                </div>
+            }
+        </div>
+        
+        <div style="margin-top: 20px; padding: 15px; background: white; border: 1px solid var(--azure-border);">
+            <strong>@webApps.Count</strong> web app(s) found
+        </div>
+    }
+</div>
+
+@code {
+[CascadingParameter]
+public PortalLayout? Layout { get; set; }
+
+private List<WebApp>? webApps;
+private bool isLoading = true;
+
+protected override async Task OnInitializedAsync()
+{
+    // Clear any web app context when returning to the portal
+    Layout?.ClearWebAppContext();
+    await LoadWebApps();
+}
+
+    private async Task LoadWebApps()
+    {
+        isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            webApps = await ApiService.GetWebAppsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading web apps: {ex.Message}");
+            webApps = new List<WebApp>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshList()
+    {
+        await LoadWebApps();
+    }
+
+    private void ViewWebApp(string id)
+    {
+        Navigation.NavigateTo($"/webapps/{id}");
+    }
+
+    private void CreateNewWebApp()
+    {
+        // TODO: Implement create dialog or navigate to create page
+        Console.WriteLine("Create new web app - To be implemented");
+    }
+
+    private string GetStatusClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "running" => "status-running",
+            "stopped" => "status-stopped",
+            _ => "status-warning"
+        };
+    }
+}

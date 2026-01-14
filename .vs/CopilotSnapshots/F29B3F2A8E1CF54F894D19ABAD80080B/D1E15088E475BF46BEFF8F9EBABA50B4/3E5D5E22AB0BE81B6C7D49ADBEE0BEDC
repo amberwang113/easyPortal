@@ -1,0 +1,27 @@
+﻿@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager Navigation
+
+<div class="topbar">
+    <div class="topbar-brand" @onclick="GoHome" style="cursor: pointer;">
+        <span style="font-size: 24px;">&#9729;</span>
+        <span>Microsoft Azure (Preview)</span>
+    </div>
+    
+    <div class="topbar-search">
+        <input type="text" placeholder="Search resources, services, and docs (G+/)" />
+    </div>
+    
+    <div class="topbar-actions">
+        <button class="topbar-icon" title="Notifications">&#128276;</button>
+        <button class="topbar-icon" title="Settings">&#9881;</button>
+        <button class="topbar-icon" title="Help">&#10068;</button>
+        <button class="topbar-icon" title="Profile">&#128100;</button>
+    </div>
+</div>
+
+@code {
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+}

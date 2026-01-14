@@ -1,0 +1,142 @@
+@using DevPortal.Models
+
+<div class="card">
+    <div class="card-title">Virtual Network Integration</div>
+    
+    <div class="form-group">
+        <label class="form-label">
+            <input type="checkbox" @bind="WebApp.VNetIntegrationEnabled" /> Enable VNet Integration
+        </label>
+        <div class="form-help">Connect your app to an Azure Virtual Network.</div>
+    </div>
+    
+    @if (WebApp.VNetIntegrationEnabled)
+    {
+        <div class="form-group">
+            <label class="form-label">Virtual Network</label>
+            <input type="text" class="form-input" @bind="WebApp.VNetName" placeholder="my-vnet" />
+            <div class="form-help">The name of the virtual network to connect to.</div>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Subnet</label>
+            <input type="text" class="form-input" @bind="WebApp.SubnetName" placeholder="default" />
+            <div class="form-help">The subnet within the virtual network.</div>
+        </div>
+    }
+</div>
+
+<div class="card">
+    <div class="card-title">Private Endpoint</div>
+    
+    <div class="form-group">
+        <label class="form-label">
+            <input type="checkbox" @bind="WebApp.PrivateEndpointEnabled" /> Enable Private Endpoint
+        </label>
+        <div class="form-help">Access your app through a private IP address from your virtual network.</div>
+    </div>
+    
+    @if (WebApp.PrivateEndpointEnabled)
+    {
+        <div class="alert alert-info">
+            Private endpoint configuration allows your app to be accessed only through a private IP address. This provides enhanced security for your application.
+        </div>
+    }
+</div>
+
+<div class="card">
+    <div class="card-title">Access Restrictions</div>
+    
+    <div class="form-help" style="margin-bottom: 15px;">
+        Configure IP-based access restrictions to control which clients can access your app.
+    </div>
+    
+    @if (WebApp.AllowedIpAddresses.Any())
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>IP Address/CIDR</th>
+                    <th>Priority</th>
+                    <th style="width: 100px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < WebApp.AllowedIpAddresses.Count; i++)
+                {
+                    var index = i;
+                    <tr>
+                        <td>Rule @(i + 1)</td>
+                        <td style="font-family: monospace;">@WebApp.AllowedIpAddresses[i]</td>
+                        <td>@((i + 1) * 100)</td>
+                        <td>
+                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" @onclick="() => RemoveIpAddress(index)">Remove</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="alert alert-info">No access restrictions configured. All traffic is allowed.</div>
+    }
+    
+    <div style="margin-top: 15px;">
+        <button class="btn btn-secondary" @onclick="AddIpAddress">+ Add Rule</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">Custom Domains</div>
+    
+    <div class="form-help" style="margin-bottom: 15px;">
+        Add custom domains to access your app with your own domain name.
+    </div>
+    
+    <div class="alert alert-info">
+        No custom domains configured. Your app is accessible at: @WebApp.Url
+    </div>
+    
+    <div style="margin-top: 15px;">
+        <button class="btn btn-secondary">+ Add Custom Domain</button>
+    </div>
+</div>
+
+<div style="margin-top: 20px;">
+    <button class="btn btn-primary" @onclick="Save">Save</button>
+    <button class="btn btn-secondary" @onclick="Discard">Discard</button>
+</div>
+
+@code {
+    [Parameter]
+    public WebApp WebApp { get; set; } = null!;
+    
+    [Parameter]
+    public EventCallback OnSave { get; set; }
+
+    private void AddIpAddress()
+    {
+        // TODO: Implement add IP dialog
+        WebApp.AllowedIpAddresses.Add("0.0.0.0/32");
+        StateHasChanged();
+    }
+
+    private void RemoveIpAddress(int index)
+    {
+        WebApp.AllowedIpAddresses.RemoveAt(index);
+        StateHasChanged();
+    }
+
+    private async Task Save()
+    {
+        await OnSave.InvokeAsync();
+    }
+
+    private void Discard()
+    {
+        // TODO: Reload original values
+        StateHasChanged();
+    }
+}

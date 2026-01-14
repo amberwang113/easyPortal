@@ -1,0 +1,369 @@
+@page "/"
+@using DevPortal.Models
+@using DevPortal.Services
+@layout PortalLayout
+@inject ApiService ApiService
+@inject NavigationManager Navigation
+
+<div class="content-wrapper" style="padding: 0;">
+    <!-- Azure Services Section -->
+    <div style="background: white; padding: 30px; border-bottom: 1px solid var(--azure-border);">
+        <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 20px;">Azure services</h2>
+        
+        <div class="azure-services-grid">
+            <div class="service-card" @onclick='() => Navigation.NavigateTo("/webapps")'>
+                <div class="service-icon">&#127760;</div>
+                <div class="service-name">App Services</div>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-icon">&#128203;</div>
+                <div class="service-name">Template specs</div>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-icon">&#128193;</div>
+                <div class="service-name">Resource groups</div>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-icon">&#127760;</div>
+                <div class="service-name">All resources</div>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-icon">&#128230;</div>
+                <div class="service-name">App Service plans</div>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-icon">&#128274;</div>
+                <div class="service-name">Key vaults</div>
+            </div>
+            
+            <div class="service-card">
+                <div class="service-icon">&#9997;</div>
+                <div class="service-name">Deployment Scripts</div>
+            </div>
+            
+            <div class="service-card" @onclick='() => Navigation.NavigateTo("/webapps")'>
+                <div class="service-icon">&#10145;</div>
+                <div class="service-name">More services</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resources Section -->
+    <div style="background: white; padding: 30px; margin-top: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <h2 style="font-size: 20px; font-weight: 600;">Resources</h2>
+        </div>
+        
+        <!-- Recent/Favorite Tabs -->
+        <div class="tabs" style="border-bottom: 2px solid var(--azure-border); margin-bottom: 0;">
+            <button class="tab @(activeTab == "recent" ? "active" : "")" @onclick='() => SetActiveTab("recent")'>
+                Recent
+            </button>
+            <button class="tab @(activeTab == "favorite" ? "active" : "")" @onclick='() => SetActiveTab("favorite")'>
+                Favorite
+            </button>
+        </div>
+        
+        @if (isLoading)
+        {
+            <div style="text-align: center; padding: 60px;">
+                <div class="loading-spinner"></div>
+                <p style="margin-top: 15px; color: var(--azure-dark-gray);">Loading resources...</p>
+            </div>
+        }
+        else if (filteredResources == null || !filteredResources.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-state-icon">@((MarkupString)"&#128230;")</div>
+                <div class="empty-state-title">No @activeTab resources</div>
+                <div class="empty-state-description">
+                    @if (activeTab == "recent")
+                    {
+                        <text>Resources you've recently accessed will appear here</text>
+                    }
+                    else
+                    {
+                        <text>Mark resources as favorites to see them here</text>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Resources Table -->
+            <table class="data-table" style="margin-top: 0;">
+                <thead>
+                    <tr>
+                        <th>&#11088;</th>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Resource group</th>
+                        <th>Location</th>
+                        <th>@(activeTab == "recent" ? "Last Viewed" : "Status")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var resource in filteredResources)
+                    {
+                        <tr @onclick="() => NavigateToResource(resource)" style="cursor: pointer;">
+                            <td>
+                                <button class="favorite-btn" @onclick:stopPropagation="true" @onclick="() => ToggleFavorite(resource)">
+                                    @((MarkupString)(resource.IsFavorite ? "&#11088;" : "&#9734;"))
+                                </button>
+                            </td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span>@((MarkupString)resource.GetIcon())</span>
+                                    <span style="color: var(--azure-blue); font-weight: 500;">@resource.Name</span>
+                                </div>
+                            </td>
+                            <td>@resource.Type</td>
+                            <td>@resource.ResourceGroup</td>
+                            <td>@resource.Location</td>
+                            <td>@(activeTab == "recent" ? resource.GetTimeAgo() : resource.Status)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 20px; padding: 15px; background: var(--azure-gray); border-radius: 2px; font-size: 13px;">
+                <strong>@filteredResources.Count</strong> resource(s) displayed
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    public PortalLayout? Layout { get; set; }
+    
+    private List<Resource>? allResources;
+    private List<Resource>? filteredResources;
+    private bool isLoading = true;
+    private string activeTab = "recent";
+    
+    protected override async Task OnInitializedAsync()
+    {
+        Layout?.ClearWebAppContext();
+        await LoadResources();
+    }
+    
+    private async Task LoadResources()
+    {
+        isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            // Get mock data or real data from API
+            allResources = await GetMockResources();
+            FilterResources();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading resources: {ex.Message}");
+            allResources = new List<Resource>();
+            filteredResources = new List<Resource>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        FilterResources();
+    }
+    
+    private void FilterResources()
+    {
+        if (allResources == null) return;
+        
+        if (activeTab == "favorite")
+        {
+            filteredResources = allResources.Where(r => r.IsFavorite).ToList();
+        }
+        else
+        {
+            filteredResources = allResources.OrderByDescending(r => r.LastViewed).ToList();
+        }
+        
+        StateHasChanged();
+    }
+    
+    private void ToggleFavorite(Resource resource)
+    {
+        resource.IsFavorite = !resource.IsFavorite;
+        FilterResources();
+    }
+    
+    private void NavigateToResource(Resource resource)
+    {
+        if (resource.Type.ToLower() == "app service")
+        {
+            Navigation.NavigateTo($"/webapps/{resource.Id}");
+        }
+        else
+        {
+            // For other resource types, navigate to webapps list for now
+            Navigation.NavigateTo("/webapps");
+        }
+    }
+    
+    private async Task<List<Resource>> GetMockResources()
+    {
+        // In a real scenario, this would come from your API
+        // For now, we'll create mock data that mimics the screenshot
+        var resources = new List<Resource>
+        {
+            new Resource
+            {
+                Id = "1",
+                Name = "anninakeller-cds",
+                Type = "App Service",
+                ResourceGroup = "anninakeller-rg",
+                Location = "East US",
+                Status = "Running",
+                LastViewed = DateTime.UtcNow.AddHours(-19),
+                IsFavorite = false
+            },
+            new Resource
+            {
+                Id = "2",
+                Name = "amwangyi2-lb",
+                Type = "Load balancer",
+                ResourceGroup = "amwang-rg",
+                Location = "West US",
+                Status = "Running",
+                LastViewed = DateTime.UtcNow.AddDays(-7),
+                IsFavorite = true
+            },
+            new Resource
+            {
+                Id = "3",
+                Name = "asp-xenon-001",
+                Type = "App Service plan",
+                ResourceGroup = "xenon-rg",
+                Location = "East US 2",
+                Status = "Running",
+                LastViewed = DateTime.UtcNow.AddDays(-14),
+                IsFavorite = false
+            },
+            new Resource
+            {
+                Id = "4",
+                Name = "ASP-amberwangyrg-ac7a",
+                Type = "App Service plan",
+                ResourceGroup = "amberwangy-rg",
+                Location = "East US",
+                Status = "Running",
+                LastViewed = DateTime.UtcNow.AddDays(-14),
+                IsFavorite = false
+            },
+            new Resource
+            {
+                Id = "5",
+                Name = "AsyncScalingXenonSF",
+                Type = "Template spec",
+                ResourceGroup = "xenon-scaling-rg",
+                Location = "Central US",
+                Status = "Available",
+                LastViewed = DateTime.UtcNow.AddDays(-14),
+                IsFavorite = false
+            },
+            new Resource
+            {
+                Id = "6",
+                Name = "amberwangy-rg",
+                Type = "Resource group",
+                ResourceGroup = "amberwangy-rg",
+                Location = "East US",
+                Status = "Active",
+                LastViewed = DateTime.UtcNow.AddDays(-14),
+                IsFavorite = false
+            },
+            new Resource
+            {
+                Id = "7",
+                Name = "testsfxenon",
+                Type = "App Service plan",
+                ResourceGroup = "test-rg",
+                Location = "West US 2",
+                Status = "Running",
+                LastViewed = DateTime.UtcNow.AddDays(-14),
+                IsFavorite = true
+            },
+            new Resource
+            {
+                Id = "8",
+                Name = "amberwang-rg",
+                Type = "Resource group",
+                ResourceGroup = "amberwang-rg",
+                Location = "East US",
+                Status = "Active",
+                LastViewed = DateTime.UtcNow.AddDays(-21),
+                IsFavorite = false
+            },
+            new Resource
+            {
+                Id = "9",
+                Name = "amwang-operations-agent-3p-rg",
+                Type = "Resource group",
+                ResourceGroup = "amwang-operations-agent-3p-rg",
+                Location = "West US",
+                Status = "Active",
+                LastViewed = DateTime.UtcNow.AddDays(-21),
+                IsFavorite = false
+            },
+            new Resource
+            {
+                Id = "10",
+                Name = "antarestestbackup",
+                Type = "Storage account",
+                ResourceGroup = "backup-rg",
+                Location = "East US",
+                Status = "Available",
+                LastViewed = DateTime.UtcNow.AddDays(-21),
+                IsFavorite = false
+            }
+        };
+        
+        // Also load web apps and convert them to resources
+        try
+        {
+            var webApps = await ApiService.GetWebAppsAsync();
+            foreach (var webApp in webApps)
+            {
+                var existingResource = resources.FirstOrDefault(r => r.Id == webApp.Id);
+                if (existingResource == null)
+                {
+                    resources.Add(new Resource
+                    {
+                        Id = webApp.Id,
+                        Name = webApp.Name,
+                        Type = "App Service",
+                        ResourceGroup = webApp.ResourceGroup,
+                        Location = webApp.Location,
+                        Status = webApp.Status,
+                        LastViewed = webApp.LastModifiedDate,
+                        IsFavorite = false
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading web apps for resources: {ex.Message}");
+        }
+        
+        return resources;
+    }
+}

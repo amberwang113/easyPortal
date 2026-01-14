@@ -1,0 +1,25 @@
+﻿@inherits LayoutComponentBase
+
+<TopBar />
+
+<div class="portal-container">
+    @if (!string.IsNullOrEmpty(WebAppName) && !string.IsNullOrEmpty(WebAppId))
+    {
+        <WebAppSidebar WebAppName="@WebAppName" WebAppId="@WebAppId" OnSectionChanged="OnSectionChanged" />
+    }
+    
+    <div class="main-content">
+        @Body
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string WebAppName { get; set; } = string.Empty;
+
+    [Parameter]
+    public string WebAppId { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> OnSectionChanged { get; set; }
+}

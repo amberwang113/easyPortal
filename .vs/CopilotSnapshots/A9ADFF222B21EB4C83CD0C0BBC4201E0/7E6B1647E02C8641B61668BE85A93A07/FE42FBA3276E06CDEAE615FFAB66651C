@@ -1,0 +1,11 @@
+﻿@inherits LayoutComponentBase
+
+<TopBar />
+
+<div class="portal-container">
+    <Sidebar />
+    
+    <div class="main-content">
+        @Body
+    </div>
+</div>

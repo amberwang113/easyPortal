@@ -1,0 +1,287 @@
+﻿@page "/webapps/{Id}"
+@layout PortalLayout
+@using DevPortal.Models
+@using DevPortal.Services
+@using DevPortal.Components.WebApp
+@inject ApiService ApiService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+@if (webApp == null)
+{
+    <div style="text-align: center; padding: 40px;">
+        <div class="loading-spinner"></div>
+        <p style="margin-top: 15px;">Loading web app details...</p>
+    </div>
+}
+else
+{
+    <div class="breadcrumb">
+        <span class="breadcrumb-item" @onclick='() => Navigation.NavigateTo("/webapps")'>Web Apps</span>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current">@webApp.Name</span>
+    </div>
+
+    <div class="page-header">
+        <div class="page-title">@webApp.Name</div>
+        <div class="page-subtitle">
+            @webApp.ResourceGroup | @webApp.Location
+        </div>
+        <div class="page-actions">
+            @if (webApp.Status == "Running")
+            {
+                <button class="btn btn-secondary" @onclick="StopWebApp" disabled="@isPerformingAction">
+                    @if (isPerformingAction && currentAction == "stop") { <span class="loading-spinner" style="width: 14px; height: 14px; margin-right: 8px;"></span> }
+                    Stop
+                </button>
+                <button class="btn btn-secondary" @onclick="RestartWebApp" disabled="@isPerformingAction">
+                    @if (isPerformingAction && currentAction == "restart") { <span class="loading-spinner" style="width: 14px; height: 14px; margin-right: 8px;"></span> }
+                    Restart
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-primary" @onclick="StartWebApp" disabled="@isPerformingAction">
+                    @if (isPerformingAction && currentAction == "start") { <span class="loading-spinner" style="width: 14px; height: 14px; margin-right: 8px;"></span> }
+                    Start
+                </button>
+            }
+            <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo(webApp.Url, true)'>Browse</button>
+            <button class="btn btn-danger" @onclick="DeleteWebApp" disabled="@isPerformingAction">Delete</button>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab @(activeTab == "overview" ? "active" : "")" @onclick='() => SetActiveTab("overview")'>
+            Overview
+        </button>
+        <button class="tab @(activeTab == "configuration" ? "active" : "")" @onclick='() => SetActiveTab("configuration")'>
+            Configuration
+        </button>
+        <button class="tab @(activeTab == "deployment" ? "active" : "")" @onclick='() => SetActiveTab("deployment")'>
+            Deployment
+        </button>
+        <button class="tab @(activeTab == "networking" ? "active" : "")" @onclick='() => SetActiveTab("networking")'>
+            Networking
+        </button>
+        <button class="tab @(activeTab == "monitoring" ? "active" : "")" @onclick='() => SetActiveTab("monitoring")'>
+            Monitoring
+        </button>
+        <button class="tab @(activeTab == "scale" ? "active" : "")" @onclick='() => SetActiveTab("scale")'>
+            Scale
+        </button>
+    </div>
+
+    <div class="tab-content">
+        @switch (activeTab)
+        {
+            case "overview":
+                <Overview WebApp="@webApp" />
+                break;
+            case "configuration":
+                <Configuration WebApp="@webApp" OnSave="SaveConfiguration" />
+                break;
+            case "deployment":
+                <Deployment WebApp="@webApp" OnSave="SaveConfiguration" />
+                break;
+            case "networking":
+                <Networking WebApp="@webApp" OnSave="SaveConfiguration" />
+                break;
+            case "monitoring":
+                <Monitoring WebApp="@webApp" />
+                break;
+            case "scale":
+                <Scale WebApp="@webApp" OnSave="SaveConfiguration" />
+                break;
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    [CascadingParameter]
+    public PortalLayout? Layout { get; set; }
+
+    private WebApp? webApp;
+    private string activeTab = "overview";
+    private bool isPerformingAction = false;
+    private string currentAction = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWebApp();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (webApp?.Id != Id)
+        {
+            await LoadWebApp();
+        }
+    }
+
+    private async Task LoadWebApp()
+    {
+        try
+        {
+            webApp = await ApiService.GetWebAppAsync(Id);
+            if (webApp == null)
+            {
+                Navigation.NavigateTo("/webapps");
+            }
+            else
+            {
+                // Update the layout to show the web app sidebar
+                Layout?.SetWebAppContext(webApp.Name, webApp.Id, EventCallback.Factory.Create<string>(this, HandleSidebarSectionChanged));
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading web app: {ex.Message}");
+            Navigation.NavigateTo("/webapps");
+        }
+    }
+
+    private void HandleSidebarSectionChanged(string section)
+    {
+        // Map sidebar sections to tabs where applicable
+        switch (section)
+        {
+            case "overview":
+                SetActiveTab("overview");
+                break;
+            case "configuration":
+            case "environment":
+                SetActiveTab("configuration");
+                break;
+            case "deployment-center":
+            case "deployment-slots":
+                SetActiveTab("deployment");
+                break;
+            case "networking":
+                SetActiveTab("networking");
+                break;
+            case "scale-up":
+            case "scale-out":
+            case "app-service-plan":
+                SetActiveTab("scale");
+                break;
+            default:
+                // For sections not mapped to tabs, just acknowledge the selection
+                break;
+        }
+    }
+
+    public void Dispose()
+    {
+        // Clear the web app context when leaving the page
+        Layout?.ClearWebAppContext();
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+    }
+
+    private async Task StartWebApp()
+    {
+        isPerformingAction = true;
+        currentAction = "start";
+        try
+        {
+            var success = await ApiService.StartWebAppAsync(Id);
+            if (success)
+            {
+                await LoadWebApp();
+            }
+        }
+        finally
+        {
+            isPerformingAction = false;
+            currentAction = string.Empty;
+        }
+    }
+
+    private async Task StopWebApp()
+    {
+        isPerformingAction = true;
+        currentAction = "stop";
+        try
+        {
+            var success = await ApiService.StopWebAppAsync(Id);
+            if (success)
+            {
+                await LoadWebApp();
+            }
+        }
+        finally
+        {
+            isPerformingAction = false;
+            currentAction = string.Empty;
+        }
+    }
+
+    private async Task RestartWebApp()
+    {
+        isPerformingAction = true;
+        currentAction = "restart";
+        try
+        {
+            var success = await ApiService.RestartWebAppAsync(Id);
+            if (success)
+            {
+                await LoadWebApp();
+            }
+        }
+        finally
+        {
+            isPerformingAction = false;
+            currentAction = string.Empty;
+        }
+    }
+
+    private async Task DeleteWebApp()
+    {
+        // TODO: Add confirmation dialog
+        if (confirm("Are you sure you want to delete this web app?"))
+        {
+            isPerformingAction = true;
+            try
+            {
+                var success = await ApiService.DeleteWebAppAsync(Id);
+                if (success)
+                {
+                    Navigation.NavigateTo("/webapps");
+                }
+            }
+            finally
+            {
+                isPerformingAction = false;
+            }
+        }
+    }
+
+    private async Task SaveConfiguration()
+    {
+        try
+        {
+            if (webApp != null)
+            {
+                await ApiService.UpdateWebAppAsync(Id, webApp);
+                await LoadWebApp();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving configuration: {ex.Message}");
+        }
+    }
+
+    private bool confirm(string message)
+    {
+        // TODO: Implement proper confirmation dialog
+        return true;
+    }
+}

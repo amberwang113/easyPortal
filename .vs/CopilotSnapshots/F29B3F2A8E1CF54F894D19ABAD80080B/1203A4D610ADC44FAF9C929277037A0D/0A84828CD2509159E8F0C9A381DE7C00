@@ -1,0 +1,69 @@
+﻿@inject NavigationManager Navigation
+
+<div class="sidebar">
+<div class="sidebar-section">
+    <div class="sidebar-title">Favorites</div>
+    <ul class="sidebar-menu">
+        <li class="sidebar-item @(IsActive("/") && !IsActive("/webapps") ? "active" : "")" @onclick='() => NavigateTo("/")'>
+            <span class="sidebar-icon">&#127968;</span>
+            <span>Home</span>
+        </li>
+        <li class="sidebar-item">
+            <span class="sidebar-icon">&#128202;</span>
+            <span>Metrics</span>
+        </li>
+    </ul>
+</div>
+    
+<div class="sidebar-section">
+    <div class="sidebar-title">Resources</div>
+    <ul class="sidebar-menu">
+        <li class="sidebar-item @(IsActive("/webapps") ? "active" : "")" @onclick='() => NavigateTo("/webapps")'>
+            <span class="sidebar-icon">&#127760;</span>
+            <span>Web Apps</span>
+        </li>
+            <li class="sidebar-item">
+                <span class="sidebar-icon">&#128451;</span>
+                <span>Databases</span>
+            </li>
+            <li class="sidebar-item">
+                <span class="sidebar-icon">&#128274;</span>
+                <span>Key Vaults</span>
+            </li>
+            <li class="sidebar-item">
+                <span class="sidebar-icon">&#128190;</span>
+                <span>Storage</span>
+            </li>
+        </ul>
+    </div>
+    
+    <div class="sidebar-section">
+        <div class="sidebar-title">Management</div>
+        <ul class="sidebar-menu">
+            <li class="sidebar-item">
+                <span class="sidebar-icon">&#128193;</span>
+                <span>Resource Groups</span>
+            </li>
+            <li class="sidebar-item">
+                <span class="sidebar-icon">&#128176;</span>
+                <span>Cost Management</span>
+            </li>
+            <li class="sidebar-item">
+                <span class="sidebar-icon">&#128274;</span>
+                <span>Access Control</span>
+            </li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    private bool IsActive(string path)
+    {
+        return Navigation.Uri.Contains(path);
+    }
+    
+    private void NavigateTo(string path)
+    {
+        Navigation.NavigateTo(path);
+    }
+}
