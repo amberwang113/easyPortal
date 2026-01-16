@@ -29,3 +29,4 @@ D:\DevPortal\obj\Debug\net8.0\staticwebassets.build.endpoints.json
 D:\DevPortal\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
 D:\DevPortal\bin\Debug\net8.0\appsettings.Development.json
 D:\DevPortal\bin\Debug\net8.0\appsettings.json
+D:\DevPortal\obj\Debug\net8.0\DevPortal.sourcelink.json

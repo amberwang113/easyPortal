@@ -1,0 +1,509 @@
+@using DevPortal.Models
+@using DevPortal.Services
+@inject ApiService ApiService
+
+<div class="env-vars-container">
+    <!-- Tabs for App settings / Connection strings -->
+    <div class="env-tabs">
+        <button class="env-tab @(activeTab == "appsettings" ? "active" : "")" @onclick='() => SetActiveTab("appsettings")'>
+            App settings
+        </button>
+        <button class="env-tab @(activeTab == "connectionstrings" ? "active" : "")" @onclick='() => SetActiveTab("connectionstrings")'>
+            Connection strings
+        </button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="env-toolbar">
+        <div class="env-search">
+            <input type="text" placeholder="Search" class="env-search-input" @bind="searchQuery" @bind:event="oninput" />
+        </div>
+        <div class="env-toolbar-actions">
+            <button class="env-toolbar-btn" @onclick="AddNew">
+                <span>+</span> Add
+            </button>
+            <button class="env-toolbar-btn" @onclick="Refresh" disabled="@isLoading">
+                <span>?</span> Refresh
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="env-loading">
+            <div class="loading-spinner"></div>
+            <p>Loading @(activeTab == "appsettings" ? "app settings" : "connection strings")...</p>
+        </div>
+    }
+    else if (isSaving)
+    {
+        <div class="env-loading">
+            <div class="loading-spinner"></div>
+            <p>Saving changes...</p>
+        </div>
+    }
+    else if (activeTab == "appsettings")
+    {
+        @if (FilteredAppSettings.Any())
+        {
+            <table class="env-table">
+                <thead>
+                    <tr>
+                        <th class="env-col-name">Name</th>
+                        <th class="env-col-value">Value</th>
+                        <th class="env-col-slot">Deployment slot setting</th>
+                        <th class="env-col-source">Source</th>
+                        <th class="env-col-delete">Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var setting in FilteredAppSettings)
+                    {
+                        <tr>
+                            <td class="env-col-name">
+                                <span class="env-name-link">@setting.Name</span>
+                            </td>
+                            <td class="env-col-value">
+                                @if (setting.IsValueHidden && !showAllValues)
+                                {
+                                    <button class="env-show-value-btn" @onclick="() => ToggleValueVisibility(setting)">
+                                        Show value
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="env-value-text">@setting.Value</span>
+                                    <button class="env-hide-value-btn" @onclick="() => ToggleValueVisibility(setting)">
+                                        Hide
+                                    </button>
+                                }
+                            </td>
+                            <td class="env-col-slot">
+                                @if (setting.IsSlotSetting)
+                                {
+                                    <span class="env-slot-badge">?</span>
+                                }
+                            </td>
+                            <td class="env-col-source">@setting.Source</td>
+                            <td class="env-col-delete">
+                                <button class="env-delete-btn" @onclick="() => DeleteAppSetting(setting)" title="Delete">
+                                    X
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else if (!string.IsNullOrEmpty(searchQuery))
+        {
+            <div class="env-empty">
+                <p>No app settings match your search.</p>
+            </div>
+        }
+        else
+        {
+            <div class="env-empty">
+                <p>No app settings configured.</p>
+                <button class="btn btn-primary" @onclick="AddNew">+ Add app setting</button>
+            </div>
+        }
+    }
+    else
+    {
+        @if (FilteredConnectionStrings.Any())
+        {
+            <table class="env-table">
+                <thead>
+                    <tr>
+                        <th class="env-col-name">Name</th>
+                        <th class="env-col-value">Value</th>
+                        <th class="env-col-type">Type</th>
+                        <th class="env-col-slot">Deployment slot setting</th>
+                        <th class="env-col-source">Source</th>
+                        <th class="env-col-delete">Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var connStr in FilteredConnectionStrings)
+                    {
+                        <tr>
+                            <td class="env-col-name">
+                                <span class="env-name-link">@connStr.Name</span>
+                            </td>
+                            <td class="env-col-value">
+                                @if (connStr.IsValueHidden && !showAllValues)
+                                {
+                                    <button class="env-show-value-btn" @onclick="() => ToggleConnectionStringVisibility(connStr)">
+                                        Show value
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="env-value-text">@connStr.Value</span>
+                                    <button class="env-hide-value-btn" @onclick="() => ToggleConnectionStringVisibility(connStr)">
+                                        Hide
+                                    </button>
+                                }
+                            </td>
+                            <td class="env-col-type">@connStr.Type</td>
+                            <td class="env-col-slot">
+                                @if (connStr.IsSlotSetting)
+                                {
+                                    <span class="env-slot-badge">?</span>
+                                }
+                            </td>
+                            <td class="env-col-source">@connStr.Source</td>
+                            <td class="env-col-delete">
+                                <button class="env-delete-btn" @onclick="() => DeleteConnectionString(connStr)" title="Delete">
+                                    X
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else if (!string.IsNullOrEmpty(searchQuery))
+        {
+            <div class="env-empty">
+                <p>No connection strings match your search.</p>
+            </div>
+        }
+        else
+        {
+            <div class="env-empty">
+                <p>No connection strings configured.</p>
+                <button class="btn btn-primary" @onclick="AddNew">+ Add connection string</button>
+            </div>
+        }
+    }
+
+    @if (hasChanges)
+    {
+        <div class="env-save-bar">
+            <span class="env-save-message">You have unsaved changes.</span>
+            <button class="btn btn-primary" @onclick="SaveChanges" disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <span class="loading-spinner" style="width: 14px; height: 14px; margin-right: 8px;"></span>
+                }
+                Save
+            </button>
+            <button class="btn btn-secondary" @onclick="DiscardChanges" disabled="@isSaving">Discard</button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(saveMessage))
+    {
+        <div class="@saveMessageClass" style="margin-top: 10px;">
+            @saveMessage
+        </div>
+    }
+</div>
+
+<!-- Add/Edit Modal -->
+@if (showAddModal)
+{
+    <div class="env-modal-overlay" @onclick="CloseModal">
+        <div class="env-modal" @onclick:stopPropagation="true">
+            <div class="env-modal-header">
+                <h3>@(activeTab == "appsettings" ? "Add/Edit application setting" : "Add/Edit connection string")</h3>
+                <button class="env-modal-close" @onclick="CloseModal">×</button>
+            </div>
+            <div class="env-modal-body">
+                <div class="form-group">
+                    <label class="form-label">Name</label>
+                    <input type="text" class="form-input" @bind="newSettingName" placeholder="Enter name" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Value</label>
+                    <input type="text" class="form-input" @bind="newSettingValue" placeholder="Enter value" />
+                </div>
+                @if (activeTab == "connectionstrings")
+                {
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select class="form-select" @bind="newConnectionStringType">
+                            <option value="SQLAzure">SQL Azure</option>
+                            <option value="SQLServer">SQL Server</option>
+                            <option value="MySQL">MySQL</option>
+                            <option value="PostgreSQL">PostgreSQL</option>
+                            <option value="Custom">Custom</option>
+                        </select>
+                    </div>
+                }
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" @bind="newSettingIsSlotSetting" /> Deployment slot setting
+                    </label>
+                </div>
+            </div>
+            <div class="env-modal-footer">
+                <button class="btn btn-primary" @onclick="SaveNewSetting">OK</button>
+                <button class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string WebAppName { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback OnSave { get; set; }
+
+    private string activeTab = "appsettings";
+    private string searchQuery = string.Empty;
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool showAllValues = false;
+    private bool hasChanges = false;
+    private string saveMessage = string.Empty;
+    private string saveMessageClass = string.Empty;
+
+    private List<EnvironmentVariable> appSettings = new();
+    private List<ConnectionStringEntry> connectionStrings = new();
+
+    // Modal state
+    private bool showAddModal = false;
+    private string newSettingName = string.Empty;
+    private string newSettingValue = string.Empty;
+    private string newConnectionStringType = "Custom";
+    private bool newSettingIsSlotSetting = false;
+
+    private IEnumerable<EnvironmentVariable> FilteredAppSettings =>
+        string.IsNullOrWhiteSpace(searchQuery)
+            ? appSettings
+            : appSettings.Where(s => s.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<ConnectionStringEntry> FilteredConnectionStrings =>
+        string.IsNullOrWhiteSpace(searchQuery)
+            ? connectionStrings
+            : connectionStrings.Where(s => s.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(WebAppName))
+        {
+            await LoadData();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        saveMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            if (activeTab == "appsettings")
+            {
+                appSettings = await ApiService.GetEnvironmentVariablesAsync(WebAppName);
+            }
+            else
+            {
+                connectionStrings = await ApiService.GetConnectionStringsAsync(WebAppName);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data: {ex.Message}");
+            saveMessage = $"Error loading data: {ex.Message}";
+            saveMessageClass = "alert alert-error";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetActiveTab(string tab)
+    {
+        if (activeTab != tab)
+        {
+            activeTab = tab;
+            searchQuery = string.Empty;
+            hasChanges = false;
+            await LoadData();
+        }
+    }
+
+    private async Task Refresh()
+    {
+        hasChanges = false;
+        await LoadData();
+    }
+
+    private void ToggleShowAllValues()
+    {
+        showAllValues = !showAllValues;
+        
+        foreach (var setting in appSettings)
+        {
+            setting.IsValueHidden = !showAllValues;
+        }
+        foreach (var connStr in connectionStrings)
+        {
+            connStr.IsValueHidden = !showAllValues;
+        }
+        
+        StateHasChanged();
+    }
+
+    private void ToggleValueVisibility(EnvironmentVariable setting)
+    {
+        setting.IsValueHidden = !setting.IsValueHidden;
+        StateHasChanged();
+    }
+
+    private void ToggleConnectionStringVisibility(ConnectionStringEntry connStr)
+    {
+        connStr.IsValueHidden = !connStr.IsValueHidden;
+        StateHasChanged();
+    }
+
+    private void AddNew()
+    {
+        newSettingName = string.Empty;
+        newSettingValue = string.Empty;
+        newConnectionStringType = "Custom";
+        newSettingIsSlotSetting = false;
+        showAddModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showAddModal = false;
+    }
+
+    private void SaveNewSetting()
+    {
+        if (string.IsNullOrWhiteSpace(newSettingName))
+        {
+            return;
+        }
+
+        if (activeTab == "appsettings")
+        {
+            var existing = appSettings.FirstOrDefault(s => s.Name == newSettingName);
+            if (existing != null)
+            {
+                existing.Value = newSettingValue;
+                existing.IsSlotSetting = newSettingIsSlotSetting;
+            }
+            else
+            {
+                appSettings.Add(new EnvironmentVariable
+                {
+                    Name = newSettingName,
+                    Value = newSettingValue,
+                    Source = "App Service",
+                    IsSlotSetting = newSettingIsSlotSetting,
+                    IsValueHidden = true
+                });
+                appSettings = appSettings.OrderBy(s => s.Name).ToList();
+            }
+        }
+        else
+        {
+            var existing = connectionStrings.FirstOrDefault(s => s.Name == newSettingName);
+            if (existing != null)
+            {
+                existing.Value = newSettingValue;
+                existing.Type = newConnectionStringType;
+                existing.IsSlotSetting = newSettingIsSlotSetting;
+            }
+            else
+            {
+                connectionStrings.Add(new ConnectionStringEntry
+                {
+                    Name = newSettingName,
+                    Value = newSettingValue,
+                    Type = newConnectionStringType,
+                    Source = "App Service",
+                    IsSlotSetting = newSettingIsSlotSetting,
+                    IsValueHidden = true
+                });
+                connectionStrings = connectionStrings.OrderBy(s => s.Name).ToList();
+            }
+        }
+
+        hasChanges = true;
+        showAddModal = false;
+        StateHasChanged();
+    }
+
+    private void DeleteAppSetting(EnvironmentVariable setting)
+    {
+        appSettings.Remove(setting);
+        hasChanges = true;
+        StateHasChanged();
+    }
+
+    private void DeleteConnectionString(ConnectionStringEntry connStr)
+    {
+        connectionStrings.Remove(connStr);
+        hasChanges = true;
+        StateHasChanged();
+    }
+
+    private async Task SaveChanges()
+    {
+        isSaving = true;
+        saveMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            bool success;
+            if (activeTab == "appsettings")
+            {
+                success = await ApiService.SaveEnvironmentVariablesAsync(WebAppName, appSettings);
+            }
+            else
+            {
+                success = await ApiService.SaveConnectionStringsAsync(WebAppName, connectionStrings);
+            }
+
+            if (success)
+            {
+                hasChanges = false;
+                saveMessage = "Changes saved successfully!";
+                saveMessageClass = "alert alert-success";
+                await OnSave.InvokeAsync();
+            }
+            else
+            {
+                saveMessage = "Failed to save changes. Please try again.";
+                saveMessageClass = "alert alert-error";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving changes: {ex.Message}");
+            saveMessage = $"Error saving changes: {ex.Message}";
+            saveMessageClass = "alert alert-error";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DiscardChanges()
+    {
+        hasChanges = false;
+        saveMessage = string.Empty;
+        await LoadData();
+    }
+}

@@ -3,24 +3,44 @@
   "WorkspaceRootPath": "D:\\DevPortal\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\models\\appserviceplan.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:models\\appserviceplan.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\models\\armmodels.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:models\\armmodels.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\models\\apisettings.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:models\\apisettings.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\shared\\webappsidebar.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:shared\\webappsidebar.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\services\\apiservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:services\\apiservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\pages\\portal.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:pages\\portal.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\models\\appserviceplan.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:models\\appserviceplan.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\models\\webapp.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:models\\webapp.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\services\\apiservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:services\\apiservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\_imports.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
@@ -41,10 +61,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\pages\\index.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
       "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:pages\\index.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\wwwroot\\css\\site.css||{A5401142-F49D-43DB-90B1-F57BA349E55C}",
@@ -115,12 +131,12 @@
       "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:components\\webapp\\configureaitools.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\.gitignore||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:.gitignore||{3B902123-F8A7-4915-9F01-361F908088D0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+      "AbsoluteMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|d:\\devportal\\components\\webapp\\environmentvariables.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{8F102CE1-C918-41BF-AE86-F1F7B4234371}|DevPortal.csproj|solutionrelative:components\\webapp\\environmentvariables.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     }
   ],
   "DocumentGroupContainers": [
@@ -130,11 +146,102 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 6,
           "Children": [
             {
               "$type": "Document",
+              "DocumentIndex": 33,
+              "Title": "EnvironmentVariables.razor",
+              "DocumentMoniker": "D:\\DevPortal\\Components\\WebApp\\EnvironmentVariables.razor",
+              "RelativeDocumentMoniker": "Components\\WebApp\\EnvironmentVariables.razor",
+              "ToolTip": "D:\\DevPortal\\Components\\WebApp\\EnvironmentVariables.razor",
+              "RelativeToolTip": "Components\\WebApp\\EnvironmentVariables.razor",
+              "ViewState": "AgIAABAAAAAAAAAAAIBJwP0BAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2026-01-16T00:05:26.073Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "ArmModels.cs",
+              "DocumentMoniker": "D:\\DevPortal\\Models\\ArmModels.cs",
+              "RelativeDocumentMoniker": "Models\\ArmModels.cs",
+              "ToolTip": "D:\\DevPortal\\Models\\ArmModels.cs",
+              "RelativeToolTip": "Models\\ArmModels.cs",
+              "ViewState": "AgIAAMUAAAAAAAAAAAAAwGUAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-15T00:33:47.253Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 5,
+              "Title": "Program.cs",
+              "DocumentMoniker": "D:\\DevPortal\\Program.cs",
+              "RelativeDocumentMoniker": "Program.cs",
+              "ToolTip": "D:\\DevPortal\\Program.cs",
+              "RelativeToolTip": "Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAGIAAAA/AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-13T21:57:06.698Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "appsettings.Development.json",
+              "DocumentMoniker": "D:\\DevPortal\\appsettings.Development.json",
+              "RelativeDocumentMoniker": "appsettings.Development.json",
+              "ToolTip": "D:\\DevPortal\\appsettings.Development.json",
+              "RelativeToolTip": "appsettings.Development.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAMAAAAZAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-01-14T21:48:19.679Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "ApiSettings.cs",
+              "DocumentMoniker": "D:\\DevPortal\\Models\\ApiSettings.cs",
+              "RelativeDocumentMoniker": "Models\\ApiSettings.cs",
+              "ToolTip": "D:\\DevPortal\\Models\\ApiSettings.cs",
+              "RelativeToolTip": "Models\\ApiSettings.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAASAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-14T23:52:59.262Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "WebAppSidebar.razor",
+              "DocumentMoniker": "D:\\DevPortal\\Shared\\WebAppSidebar.razor",
+              "RelativeDocumentMoniker": "Shared\\WebAppSidebar.razor",
+              "ToolTip": "D:\\DevPortal\\Shared\\WebAppSidebar.razor",
+              "RelativeToolTip": "Shared\\WebAppSidebar.razor",
+              "ViewState": "AgIAAGkBAAAAAAAAAIApwHEBAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2026-01-13T23:23:17.963Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "AppServicePlan.cs",
+              "DocumentMoniker": "D:\\DevPortal\\Models\\AppServicePlan.cs",
+              "RelativeDocumentMoniker": "Models\\AppServicePlan.cs",
+              "ToolTip": "D:\\DevPortal\\Models\\AppServicePlan.cs",
+              "RelativeToolTip": "Models\\AppServicePlan.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABkAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-13T22:14:44.461Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
               "Title": "_Imports.razor",
               "DocumentMoniker": "D:\\DevPortal\\_Imports.razor",
               "RelativeDocumentMoniker": "_Imports.razor",
@@ -146,58 +253,44 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "AppServicePlan.cs",
-              "DocumentMoniker": "D:\\DevPortal\\Models\\AppServicePlan.cs",
-              "RelativeDocumentMoniker": "Models\\AppServicePlan.cs",
-              "ToolTip": "D:\\DevPortal\\Models\\AppServicePlan.cs",
-              "RelativeToolTip": "Models\\AppServicePlan.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABkAAAAAAAAAAAAAAA==",
+              "DocumentIndex": 32,
+              "Title": ".gitignore",
+              "DocumentMoniker": "D:\\DevPortal\\.gitignore",
+              "RelativeDocumentMoniker": ".gitignore",
+              "ToolTip": "D:\\DevPortal\\.gitignore",
+              "RelativeToolTip": ".gitignore",
+              "ViewState": "AgIAAKwBAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-01-15T00:05:13.842Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "ApiService.cs",
+              "DocumentMoniker": "D:\\DevPortal\\Services\\ApiService.cs",
+              "RelativeDocumentMoniker": "Services\\ApiService.cs",
+              "ToolTip": "D:\\DevPortal\\Services\\ApiService.cs",
+              "RelativeToolTip": "Services\\ApiService.cs",
+              "ViewState": "AgIAAHUAAAAAAAAAAAAUwJ0AAAAvAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-01-13T22:14:44.461Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "WebAppSidebar.razor",
-              "DocumentMoniker": "D:\\DevPortal\\Shared\\WebAppSidebar.razor",
-              "RelativeDocumentMoniker": "Shared\\WebAppSidebar.razor",
-              "ToolTip": "D:\\DevPortal\\Shared\\WebAppSidebar.razor",
-              "RelativeToolTip": "Shared\\WebAppSidebar.razor",
-              "ViewState": "AgIAAFQBAACgmZmZmRkmwHEBAAAFAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-13T23:23:17.963Z",
+              "WhenOpened": "2026-01-13T22:15:11.845Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 28,
-              "Title": "appsettings.Development.json",
-              "DocumentMoniker": "D:\\DevPortal\\appsettings.Development.json",
-              "RelativeDocumentMoniker": "appsettings.Development.json",
-              "ToolTip": "D:\\DevPortal\\appsettings.Development.json",
-              "RelativeToolTip": "appsettings.Development.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2026-01-14T21:48:19.679Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 29,
+              "DocumentIndex": 7,
               "Title": "appsettings.json",
               "DocumentMoniker": "D:\\DevPortal\\appsettings.json",
               "RelativeDocumentMoniker": "appsettings.json",
               "ToolTip": "D:\\DevPortal\\appsettings.json",
               "RelativeToolTip": "appsettings.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAB0AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2026-01-14T21:48:19.705Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-14T21:48:19.705Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 26,
+              "DocumentIndex": 30,
               "Title": "MCPDevelopment.razor",
               "DocumentMoniker": "D:\\DevPortal\\Components\\WebApp\\MCPDevelopment.razor",
               "RelativeDocumentMoniker": "Components\\WebApp\\MCPDevelopment.razor",
@@ -205,12 +298,11 @@
               "RelativeToolTip": "Components\\WebApp\\MCPDevelopment.razor",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAADoBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-14T21:25:34.676Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-14T21:25:34.676Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 27,
+              "DocumentIndex": 31,
               "Title": "ConfigureAITools.razor",
               "DocumentMoniker": "D:\\DevPortal\\Components\\WebApp\\ConfigureAITools.razor",
               "RelativeDocumentMoniker": "Components\\WebApp\\ConfigureAITools.razor",
@@ -218,12 +310,11 @@
               "RelativeToolTip": "Components\\WebApp\\ConfigureAITools.razor",
               "ViewState": "AgIAALwAAAAAAAAAAIBJwF4BAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-14T21:26:45.577Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-14T21:26:45.577Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 24,
+              "DocumentIndex": 28,
               "Title": "NotImplemented.razor",
               "DocumentMoniker": "D:\\DevPortal\\Components\\WebApp\\NotImplemented.razor",
               "RelativeDocumentMoniker": "Components\\WebApp\\NotImplemented.razor",
@@ -231,37 +322,24 @@
               "RelativeToolTip": "Components\\WebApp\\NotImplemented.razor",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-14T20:25:49.172Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-14T20:25:49.172Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 25,
+              "DocumentIndex": 29,
               "Title": "WebAppSection.razor",
               "DocumentMoniker": "D:\\DevPortal\\Pages\\WebAppSection.razor",
               "RelativeDocumentMoniker": "Pages\\WebAppSection.razor",
               "ToolTip": "D:\\DevPortal\\Pages\\WebAppSection.razor",
               "RelativeToolTip": "Pages\\WebAppSection.razor",
-              "ViewState": "AgIAAAAAAAAAAAAAAABBwOUAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAHAAAAAAAAAAAIBJwO8AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
               "WhenOpened": "2026-01-14T20:26:18.615Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "ApiService.cs",
-              "DocumentMoniker": "D:\\DevPortal\\Services\\ApiService.cs",
-              "RelativeDocumentMoniker": "Services\\ApiService.cs",
-              "ToolTip": "D:\\DevPortal\\Services\\ApiService.cs",
-              "RelativeToolTip": "Services\\ApiService.cs",
-              "ViewState": "AgIAAAgAAACAZ2ZmZmYDwCQBAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-01-13T22:15:11.845Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 22,
+              "DocumentIndex": 26,
               "Title": "Resource.cs",
               "DocumentMoniker": "D:\\DevPortal\\Models\\Resource.cs",
               "RelativeDocumentMoniker": "Models\\Resource.cs",
@@ -273,32 +351,33 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 23,
+              "DocumentIndex": 27,
               "Title": "Home.razor",
               "DocumentMoniker": "D:\\DevPortal\\Pages\\Home.razor",
               "RelativeDocumentMoniker": "Pages\\Home.razor",
               "ToolTip": "D:\\DevPortal\\Pages\\Home.razor",
               "RelativeToolTip": "Pages\\Home.razor",
-              "ViewState": "AgIAAAwAAAAAAAAAAIBJwHEBAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAN0AAAAAAAAAAIBJwPsAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
               "WhenOpened": "2026-01-14T18:28:26.618Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 9,
               "Title": "WebApp.cs",
               "DocumentMoniker": "D:\\DevPortal\\Models\\WebApp.cs",
               "RelativeDocumentMoniker": "Models\\WebApp.cs",
               "ToolTip": "D:\\DevPortal\\Models\\WebApp.cs",
               "RelativeToolTip": "Models\\WebApp.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAADwAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAcAAAAAAAAAAIBQwEAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-01-13T22:14:38.954Z"
+              "WhenOpened": "2026-01-13T22:14:38.954Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 8,
               "Title": "Portal.razor",
               "DocumentMoniker": "D:\\DevPortal\\Pages\\Portal.razor",
               "RelativeDocumentMoniker": "Pages\\Portal.razor",
@@ -306,12 +385,11 @@
               "RelativeToolTip": "Pages\\Portal.razor",
               "ViewState": "AgIAAAAAAAAAAAAAAABBwIAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-13T22:15:56.179Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-13T22:15:56.179Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 11,
               "Title": "TopBar.razor",
               "DocumentMoniker": "D:\\DevPortal\\Shared\\TopBar.razor",
               "RelativeDocumentMoniker": "Shared\\TopBar.razor",
@@ -319,12 +397,11 @@
               "RelativeToolTip": "Shared\\TopBar.razor",
               "ViewState": "AgIAAAAAAAAAAAAAAIBJwBoAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-13T22:15:20.826Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-13T22:15:20.826Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 12,
               "Title": "Sidebar.razor",
               "DocumentMoniker": "D:\\DevPortal\\Shared\\Sidebar.razor",
               "RelativeDocumentMoniker": "Shared\\Sidebar.razor",
@@ -332,12 +409,11 @@
               "RelativeToolTip": "Shared\\Sidebar.razor",
               "ViewState": "AgIAAA4AAAAAAAAAAIBJwEUAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-13T22:15:29.543Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-13T22:15:29.543Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 16,
               "Title": "PortalLayout.razor",
               "DocumentMoniker": "D:\\DevPortal\\Shared\\PortalLayout.razor",
               "RelativeDocumentMoniker": "Shared\\PortalLayout.razor",
@@ -349,7 +425,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 17,
               "Title": "MainLayout.razor",
               "DocumentMoniker": "D:\\DevPortal\\Shared\\MainLayout.razor",
               "RelativeDocumentMoniker": "Shared\\MainLayout.razor",
@@ -361,31 +437,20 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 15,
               "Title": "site.css",
               "DocumentMoniker": "D:\\DevPortal\\wwwroot\\css\\site.css",
               "RelativeDocumentMoniker": "wwwroot\\css\\site.css",
               "ToolTip": "D:\\DevPortal\\wwwroot\\css\\site.css",
               "RelativeToolTip": "wwwroot\\css\\site.css",
-              "ViewState": "AgIAAJsCAAAAAAAAAABBwMsCAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAABcDAAAAAAAAAABBwBQEAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
-              "WhenOpened": "2026-01-13T22:14:24.517Z"
+              "WhenOpened": "2026-01-13T22:14:24.517Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
-              "Title": "Program.cs",
-              "DocumentMoniker": "D:\\DevPortal\\Program.cs",
-              "RelativeDocumentMoniker": "Program.cs",
-              "ToolTip": "D:\\DevPortal\\Program.cs",
-              "RelativeToolTip": "Program.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABoAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-01-13T21:57:06.698Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 14,
               "Title": "Index.razor",
               "DocumentMoniker": "D:\\DevPortal\\Pages\\Index.razor",
               "RelativeDocumentMoniker": "Pages\\Index.razor",
@@ -397,7 +462,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 13,
               "Title": "App.razor",
               "DocumentMoniker": "D:\\DevPortal\\App.razor",
               "RelativeDocumentMoniker": "App.razor",
@@ -405,12 +470,11 @@
               "RelativeToolTip": "App.razor",
               "ViewState": "AgIAAA0AAAAAAAAAAIBJwBQAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-13T22:18:23.801Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-13T22:18:23.801Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 18,
               "Title": "_Host.cshtml",
               "DocumentMoniker": "D:\\DevPortal\\Pages\\_Host.cshtml",
               "RelativeDocumentMoniker": "Pages\\_Host.cshtml",
@@ -418,12 +482,11 @@
               "RelativeToolTip": "Pages\\_Host.cshtml",
               "ViewState": "AgIAAAkAAAAAAAAAAIBZwC8AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-13T22:48:29.869Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-13T22:48:29.869Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 21,
+              "DocumentIndex": 25,
               "Title": "Scale.razor",
               "DocumentMoniker": "D:\\DevPortal\\Components\\WebApp\\Scale.razor",
               "RelativeDocumentMoniker": "Components\\WebApp\\Scale.razor",
@@ -435,7 +498,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 20,
+              "DocumentIndex": 24,
               "Title": "Monitoring.razor",
               "DocumentMoniker": "D:\\DevPortal\\Components\\WebApp\\Monitoring.razor",
               "RelativeDocumentMoniker": "Components\\WebApp\\Monitoring.razor",
@@ -443,12 +506,11 @@
               "RelativeToolTip": "Components\\WebApp\\Monitoring.razor",
               "ViewState": "AgIAADIAAAAAAAAAAIBJwKgAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-13T22:17:40.767Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-13T22:17:40.767Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 19,
+              "DocumentIndex": 23,
               "Title": "Networking.razor",
               "DocumentMoniker": "D:\\DevPortal\\Components\\WebApp\\Networking.razor",
               "RelativeDocumentMoniker": "Components\\WebApp\\Networking.razor",
@@ -460,7 +522,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 18,
+              "DocumentIndex": 22,
               "Title": "Deployment.razor",
               "DocumentMoniker": "D:\\DevPortal\\Components\\WebApp\\Deployment.razor",
               "RelativeDocumentMoniker": "Components\\WebApp\\Deployment.razor",
@@ -468,12 +530,11 @@
               "RelativeToolTip": "Components\\WebApp\\Deployment.razor",
               "ViewState": "AgIAAFkAAAAAAAAAAIBJwHkAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-13T22:17:06.453Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-13T22:17:06.453Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
+              "DocumentIndex": 21,
               "Title": "Configuration.razor",
               "DocumentMoniker": "D:\\DevPortal\\Components\\WebApp\\Configuration.razor",
               "RelativeDocumentMoniker": "Components\\WebApp\\Configuration.razor",
@@ -481,12 +542,11 @@
               "RelativeToolTip": "Components\\WebApp\\Configuration.razor",
               "ViewState": "AgIAAAMAAAAAAAAAAIBZwLIAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-13T22:16:53.37Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-13T22:16:53.37Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 20,
               "Title": "Overview.razor",
               "DocumentMoniker": "D:\\DevPortal\\Components\\WebApp\\Overview.razor",
               "RelativeDocumentMoniker": "Components\\WebApp\\Overview.razor",
@@ -498,7 +558,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 19,
               "Title": "WebAppDetail.razor",
               "DocumentMoniker": "D:\\DevPortal\\Pages\\WebAppDetail.razor",
               "RelativeDocumentMoniker": "Pages\\WebAppDetail.razor",
@@ -506,8 +566,7 @@
               "RelativeToolTip": "Pages\\WebAppDetail.razor",
               "ViewState": "AgIAAAAAAAAAAAAAAABBwB8BAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-01-13T22:16:18.373Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-13T22:16:18.373Z"
             }
           ]
         }

@@ -220,143 +220,25 @@
     
     private async Task<List<Resource>> GetMockResources()
     {
-        // In a real scenario, this would come from your API
-        // For now, we'll create mock data that mimics the screenshot
-        var resources = new List<Resource>
-        {
-            new Resource
-            {
-                Id = "1",
-                Name = "anninakeller-cds",
-                Type = "App Service",
-                ResourceGroup = "anninakeller-rg",
-                Location = "East US",
-                Status = "Running",
-                LastViewed = DateTime.UtcNow.AddHours(-19),
-                IsFavorite = false
-            },
-            new Resource
-            {
-                Id = "2",
-                Name = "amwangyi2-lb",
-                Type = "Load balancer",
-                ResourceGroup = "amwang-rg",
-                Location = "West US",
-                Status = "Running",
-                LastViewed = DateTime.UtcNow.AddDays(-7),
-                IsFavorite = true
-            },
-            new Resource
-            {
-                Id = "3",
-                Name = "asp-xenon-001",
-                Type = "App Service plan",
-                ResourceGroup = "xenon-rg",
-                Location = "East US 2",
-                Status = "Running",
-                LastViewed = DateTime.UtcNow.AddDays(-14),
-                IsFavorite = false
-            },
-            new Resource
-            {
-                Id = "4",
-                Name = "ASP-amberwangyrg-ac7a",
-                Type = "App Service plan",
-                ResourceGroup = "amberwangy-rg",
-                Location = "East US",
-                Status = "Running",
-                LastViewed = DateTime.UtcNow.AddDays(-14),
-                IsFavorite = false
-            },
-            new Resource
-            {
-                Id = "5",
-                Name = "AsyncScalingXenonSF",
-                Type = "Template spec",
-                ResourceGroup = "xenon-scaling-rg",
-                Location = "Central US",
-                Status = "Available",
-                LastViewed = DateTime.UtcNow.AddDays(-14),
-                IsFavorite = false
-            },
-            new Resource
-            {
-                Id = "6",
-                Name = "amberwangy-rg",
-                Type = "Resource group",
-                ResourceGroup = "amberwangy-rg",
-                Location = "East US",
-                Status = "Active",
-                LastViewed = DateTime.UtcNow.AddDays(-14),
-                IsFavorite = false
-            },
-            new Resource
-            {
-                Id = "7",
-                Name = "testsfxenon",
-                Type = "App Service plan",
-                ResourceGroup = "test-rg",
-                Location = "West US 2",
-                Status = "Running",
-                LastViewed = DateTime.UtcNow.AddDays(-14),
-                IsFavorite = true
-            },
-            new Resource
-            {
-                Id = "8",
-                Name = "amberwang-rg",
-                Type = "Resource group",
-                ResourceGroup = "amberwang-rg",
-                Location = "East US",
-                Status = "Active",
-                LastViewed = DateTime.UtcNow.AddDays(-21),
-                IsFavorite = false
-            },
-            new Resource
-            {
-                Id = "9",
-                Name = "amwang-operations-agent-3p-rg",
-                Type = "Resource group",
-                ResourceGroup = "amwang-operations-agent-3p-rg",
-                Location = "West US",
-                Status = "Active",
-                LastViewed = DateTime.UtcNow.AddDays(-21),
-                IsFavorite = false
-            },
-            new Resource
-            {
-                Id = "10",
-                Name = "antarestestbackup",
-                Type = "Storage account",
-                ResourceGroup = "backup-rg",
-                Location = "East US",
-                Status = "Available",
-                LastViewed = DateTime.UtcNow.AddDays(-21),
-                IsFavorite = false
-            }
-        };
+        var resources = new List<Resource>();
         
-        // Also load web apps and convert them to resources
+        // Load web apps and convert them to resources
         try
         {
             var webApps = await ApiService.GetWebAppsAsync();
             foreach (var webApp in webApps)
             {
-                var existingResource = resources.FirstOrDefault(r => r.Id == webApp.Id);
-                if (existingResource == null)
+                resources.Add(new Resource
                 {
-                    resources.Add(new Resource
-                    {
-                        Id = webApp.Id,
-                        Name = webApp.Name,
-                        Type = "App Service",
-                        ResourceGroup = webApp.ResourceGroup,
-                        Location = webApp.Location,
-                        Status = webApp.Status,
-                        LastViewed = webApp.LastModifiedDate,
-                        IsFavorite = false
-                    });
-                }
+                    Id = webApp.Id,
+                    Name = webApp.Name,
+                    Type = "App Service",
+                    ResourceGroup = webApp.ResourceGroup,
+                    Location = webApp.Location,
+                    Status = webApp.Status,
+                    LastViewed = webApp.LastModifiedDate,
+                    IsFavorite = false
+                });
             }
         }
         catch (Exception ex)

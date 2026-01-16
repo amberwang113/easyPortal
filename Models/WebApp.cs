@@ -4,6 +4,10 @@ public class WebApp
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    /// <summary>
+    /// The full ARM resource ID (e.g., /subscriptions/.../sites/myapp). Used for Azure API calls.
+    /// </summary>
+    public string ArmId { get; set; } = string.Empty;
     public string ResourceGroup { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public string Status { get; set; } = "Running";

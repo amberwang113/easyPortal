@@ -36,6 +36,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xXZWJBcHBcRGVwbG95bWVudC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/DevPortal/Components/WebApp/EnvironmentVariables.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xXZWJBcHBcRW52aXJvbm1lbnRWYXJpYWJsZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/DevPortal/Components/WebApp/MCPDevelopment.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xXZWJBcHBcTUNQRGV2ZWxvcG1lbnQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 

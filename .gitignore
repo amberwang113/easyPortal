@@ -416,3 +416,15 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Sensitive configuration files - DO NOT COMMIT SECRETS
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.local.json
+secrets.json
+
+# Certificate files
+*.cer
+*.pem
+*.key
+*.p12

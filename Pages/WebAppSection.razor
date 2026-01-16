@@ -34,6 +34,9 @@ else
     <div class="content-wrapper">
         @switch (Section)
         {
+            case "environment":
+                <EnvironmentVariables WebAppName="@webApp.Name" OnSave="SaveConfiguration" />
+                break;
             case "configure-ai-tools":
                 <ConfigureAITools WebApp="@webApp" OnSave="SaveConfiguration" />
                 break;
@@ -105,11 +108,18 @@ else
     private void NavigateToSection(string section)
     {
         // Sections that have full implementations go to the main WebAppDetail page with a tab
-        var implementedSections = new[] { "overview", "configuration", "environment", "deployment-center", "deployment-slots", "networking", "scale-up", "scale-out", "app-service-plan" };
+        var implementedSections = new[] { "overview", "configuration", "deployment-center", "deployment-slots", "networking", "scale-up", "scale-out", "app-service-plan" };
+        
+        // Sections that have their own dedicated page
+        var dedicatedSections = new[] { "environment", "configure-ai-tools", "mcp-development" };
         
         if (section == "overview")
         {
             Navigation.NavigateTo($"/webapps/{Id}");
+        }
+        else if (dedicatedSections.Contains(section))
+        {
+            Navigation.NavigateTo($"/webapps/{Id}/{section}");
         }
         else if (implementedSections.Contains(section))
         {
