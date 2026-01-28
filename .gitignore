@@ -428,3 +428,9 @@ secrets.json
 *.pem
 *.key
 *.p12
+
+obj/
+bin/
+.vs/
+
+

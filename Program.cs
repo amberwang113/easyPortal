@@ -11,6 +11,9 @@ builder.Services.AddServerSideBlazor();
 // Configure API settings
 builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("Api"));
 
+// Configure EasyAgent default settings
+builder.Services.Configure<EasyAgentSettings>(builder.Configuration.GetSection("EasyAgent"));
+
 // Configure HttpClient for ApiService
 builder.Services.AddHttpClient<ApiService>((serviceProvider, client) =>
 {

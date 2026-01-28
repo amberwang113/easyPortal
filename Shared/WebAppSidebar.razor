@@ -56,13 +56,9 @@
         @if (isAICenterExpanded)
         {
             <ul class="sidebar-submenu">
-                <li class="sidebar-item @(IsActive("configure-ai-tools") ? "active" : "")" @onclick='() => SetActiveSection("configure-ai-tools")'>
+                <li class="sidebar-item @(IsActive("ai-integration") ? "active" : "")" @onclick='() => SetActiveSection("ai-integration")'>
                     <span class="sidebar-icon">&#129302;</span>
-                    <span>Configure AI Tools</span>
-                </li>
-                <li class="sidebar-item @(IsActive("mcp-development") ? "active" : "")" @onclick='() => SetActiveSection("mcp-development")'>
-                    <span class="sidebar-icon">&#128187;</span>
-                    <span>MCP Development</span>
+                    <span>AI Integration</span>
                 </li>
             </ul>
         }

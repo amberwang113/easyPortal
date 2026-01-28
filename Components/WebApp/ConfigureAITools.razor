@@ -1,256 +1,319 @@
 @using DevPortal.Models
+@using DevPortal.Services
+@using Microsoft.Extensions.Options
+@inject ApiService ApiService
+@inject IOptions<EasyAgentSettings> EasyAgentConfig
 
 <div class="card">
     <div class="card-title">AI Integration</div>
     <div class="form-help" style="margin-bottom: 20px;">
-        Add AI-powered capabilities to your web application. This creates an AI agent endpoint that can answer questions, 
-        perform actions, and interact with your application's data and APIs.
+        Add AI-powered capabilities to your web application. Select one or more output types below.
     </div>
     
     <div class="form-group">
-        <label class="form-label" style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-            <div class="toggle-switch @(aiEnabled ? "active" : "")" @onclick="ToggleAI">
-                <div class="toggle-slider"></div>
-            </div>
-            <span style="font-weight: 600;">Enable AI Agent</span>
-        </label>
-        <div class="form-help">
-            When enabled, your web app will have an AI-powered chat endpoint that users can interact with.
+        <label class="form-label" style="font-weight: 600; margin-bottom: 12px;">Output Types</label>
+        
+        <div class="output-checkbox-group">
+            <label class="output-checkbox-item">
+                <input type="checkbox" @bind="mcpServerEnabled" />
+                <span class="output-checkbox-label">MCP Server</span>
+                <span class="output-checkbox-desc">Expose APIs as tools via Model Context Protocol</span>
+            </label>
+            
+            <label class="output-checkbox-item">
+                <input type="checkbox" @bind="endpointEnabled" />
+                <span class="output-checkbox-label">Endpoint</span>
+                <span class="output-checkbox-desc">REST API endpoint with AI-powered responses</span>
+            </label>
+            
+            <label class="output-checkbox-item">
+                <input type="checkbox" @bind="nlwebEnabled" />
+                <span class="output-checkbox-label">NLWeb</span>
+                <span class="output-checkbox-desc">Natural language web interface with chat widget</span>
+            </label>
         </div>
     </div>
 </div>
 
-@if (aiEnabled)
+@if (mcpServerEnabled)
 {
     <div class="card">
-        <div class="card-title">AI Agent Configuration</div>
+        <div class="card-title">MCP Server Configuration</div>
         
         <div class="form-group">
-            <label class="form-label">Chat Endpoint Path</label>
-            <input type="text" class="form-input" @bind="chatEndpointPath" placeholder="/ai/chat" />
-            <div class="form-help">The URL path where the AI chat interface will be available.</div>
+            <label class="form-label">MCP Endpoint Path</label>
+            <input type="text" class="form-input" @bind="mcpEndpointPath" placeholder="/.well-known/mcp" />
+            <div class="form-help">The path where AI assistants will discover your MCP server.</div>
         </div>
         
         <div class="form-group">
-            <label class="form-label">Agent Name</label>
-            <input type="text" class="form-input" @bind="agentName" placeholder="AI Assistant" />
-            <div class="form-help">The display name for your AI agent.</div>
+            <label class="form-label">Server Name</label>
+            <input type="text" class="form-input" @bind="mcpServerName" placeholder="@WebApp?.Name MCP Server" />
         </div>
         
         <div class="form-group">
-            <label class="form-label">System Prompt</label>
-            <textarea class="form-textarea" @bind="systemPrompt" placeholder="You are a helpful assistant for..." style="min-height: 100px;"></textarea>
-            <div class="form-help">Instructions that define how your AI agent behaves and responds.</div>
+            <label class="form-label">Server Description</label>
+            <textarea class="form-textarea" @bind="mcpServerDescription" placeholder="Describe what your MCP server provides..."></textarea>
         </div>
         
-        <div class="form-group">
-            <label class="form-label">Azure OpenAI Project Name</label>
-            <input type="text" class="form-input" @bind="azureOpenAiProjectName" placeholder="my-openai-project" />
-            <div class="form-help">The name of your Azure OpenAI project resource.</div>
-        </div>
-        
-        <div class="form-group">
-            <label class="form-label">Azure OpenAI Agent Name</label>
-            <input type="text" class="form-input" @bind="azureOpenAiAgentName" placeholder="my-agent" />
-            <div class="form-help">The name of the agent deployment within your Azure OpenAI project.</div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card-title">RAG (Retrieval Augmented Generation)</div>
-        <div class="form-help" style="margin-bottom: 20px;">
-            Enable RAG to give your AI agent knowledge about your website's content. The agent will be able to answer 
-            questions based on your site's pages and documentation.
-        </div>
-        
-        <div class="form-group">
-            <label class="form-label" style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-                <div class="toggle-switch @(ragEnabled ? "active" : "")" @onclick="ToggleRAG">
-                    <div class="toggle-slider"></div>
+        <div class="form-group" style="margin-top: 20px;">
+            <label class="form-label">API Tools</label>
+            <div class="form-help" style="margin-bottom: 10px;">Define API endpoints to expose as MCP tools.</div>
+            
+            @if (mcpTools.Any())
+            {
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                    @foreach (var tool in mcpTools)
+                    {
+                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--azure-gray); border-radius: 4px;">
+                            <span style="font-weight: 500;">@tool.Name</span>
+                            <span style="padding: 2px 6px; background: var(--azure-blue); color: white; border-radius: 3px; font-size: 11px;">@tool.Method</span>
+                            <span style="font-family: monospace; font-size: 12px; color: var(--azure-dark-gray);">@tool.Endpoint</span>
+                            <button class="btn btn-secondary" style="margin-left: auto; padding: 2px 8px; font-size: 11px;" @onclick="() => RemoveTool(tool)">Remove</button>
+                        </div>
+                    }
                 </div>
-                <span style="font-weight: 600;">Enable Website Knowledge (RAG)</span>
-            </label>
-            <div class="form-help">
-                Automatically crawl and index your website content so the AI can reference it.
+            }
+            
+            <button class="btn btn-secondary" @onclick="ShowAddToolDialog">+ Add API Tool</button>
+        </div>
+        
+        @if (showAddTool)
+        {
+            <div style="margin-top: 15px; padding: 15px; border: 1px solid var(--azure-blue); border-radius: 4px; background: var(--azure-light-blue);">
+                <div style="display: grid; grid-template-columns: 1fr 100px 1fr; gap: 10px; margin-bottom: 10px;">
+                    <input type="text" class="form-input" @bind="newTool.Name" placeholder="Tool name" />
+                    <select class="form-select" @bind="newTool.Method">
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                    </select>
+                    <input type="text" class="form-input" @bind="newTool.Endpoint" placeholder="/api/endpoint" />
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" style="padding: 4px 12px;" @onclick="SaveTool">Add</button>
+                    <button class="btn btn-secondary" style="padding: 4px 12px;" @onclick="CancelAddTool">Cancel</button>
+                </div>
             </div>
+        }
+    </div>
+}
+
+@if (endpointEnabled)
+{
+    <div class="card">
+        <div class="card-title">Endpoint Configuration</div>
+        
+        <div class="form-group">
+            <label class="form-label">Endpoint Path</label>
+            <input type="text" class="form-input" @bind="aiEndpointPath" placeholder="ai/chat" />
+            <div class="form-help">The API path where AI chat requests will be handled (e.g., /ai/chat).</div>
+        </div>
+        
+        <div class="form-group" style="margin-top: 20px;">
+            <label class="form-label">
+                <input type="checkbox" @bind="ragEnabled" style="margin-right: 8px;" />
+                <span style="font-weight: 600;">Enable RAG (Website Knowledge)</span>
+            </label>
+            <div class="form-help">Allow the AI to reference your website's content.</div>
         </div>
         
         @if (ragEnabled)
         {
-            <div class="form-group" style="margin-top: 20px;">
-                <label class="form-label">Starting URL for Crawling</label>
-                <input type="text" class="form-input" @bind="ragStartUrl" placeholder="/" />
-                <div class="form-help">The AI will crawl pages starting from this URL. Use "/" to crawl the entire site.</div>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">URL Patterns to Include</label>
-                <textarea class="form-textarea" @bind="ragIncludePatterns" placeholder="/docs/*&#10;/help/*&#10;/api/*" style="min-height: 80px;"></textarea>
-                <div class="form-help">Only crawl URLs matching these patterns (one per line). Leave empty to crawl all pages.</div>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">URL Patterns to Exclude</label>
-                <textarea class="form-textarea" @bind="ragExcludePatterns" placeholder="/admin/*&#10;/login&#10;/api/internal/*" style="min-height: 80px;"></textarea>
-                <div class="form-help">Skip URLs matching these patterns (one per line).</div>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Crawl Depth</label>
-                <input type="number" class="form-input" @bind="ragCrawlDepth" min="1" max="10" style="width: 100px;" />
-                <div class="form-help">How many levels deep to follow links from the starting URL.</div>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Re-index Schedule</label>
-                <select class="form-select" @bind="ragReindexSchedule">
-                    <option value="manual">Manual only</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                </select>
-                <div class="form-help">How often to re-crawl and update the knowledge base.</div>
-            </div>
-            
-            <div style="margin-top: 15px;">
-                <button class="btn btn-secondary" @onclick="StartCrawl">
-                    &#128269; Start Crawl Now
-                </button>
-                <span style="margin-left: 15px; color: var(--azure-dark-gray); font-size: 13px;">
-                    @if (lastCrawlDate.HasValue)
-                    {
-                        <text>Last crawled: @lastCrawlDate.Value.ToString("MMM dd, yyyy HH:mm")</text>
-                    }
-                    else
-                    {
-                        <text>Never crawled</text>
-                    }
-                </span>
+            <div style="margin-left: 24px; margin-top: 15px;">
+                <div class="form-group">
+                    <label class="form-label" style="margin-bottom: 10px;">RAG Database</label>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="ragOption" checked="@(ragOption == "create")" @onchange='() => ragOption = "create"' />
+                            <span>Create a new RAG database</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="ragOption" checked="@(ragOption == "existing")" @onchange='() => ragOption = "existing"' />
+                            <span>Configure an existing database</span>
+                        </label>
+                    </div>
+                </div>
+                
+                @if (ragOption == "existing")
+                {
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label class="form-label">Cosmos DB Endpoint</label>
+                        <input type="text" class="form-input" @bind="cosmosDbEndpoint" placeholder="https://your-cosmos.documents.azure.com:443/" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Database Name</label>
+                        <input type="text" class="form-input" @bind="cosmosDbName" placeholder="RAGDatabase" />
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info" style="margin-top: 15px;">
+                        A new Cosmos DB database will be created automatically when you save. The database will be provisioned in your resource group.
+                    </div>
+                }
             </div>
         }
-    </div>
-
-    <div class="card">
-        <div class="card-title">API Tools (Function Calling)</div>
-        <div class="form-help" style="margin-bottom: 20px;">
-            Give your AI agent the ability to call your application's APIs. Import an OpenAPI specification to 
-            automatically configure available tools.
-        </div>
         
-        <div class="form-group">
-            <label class="form-label" style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-                <div class="toggle-switch @(toolsEnabled ? "active" : "")" @onclick="ToggleTools">
-                    <div class="toggle-slider"></div>
-                </div>
-                <span style="font-weight: 600;">Enable API Tools</span>
+        <div class="form-group" style="margin-top: 20px;">
+            <label class="form-label">
+                <input type="checkbox" @bind="toolsEnabled" style="margin-right: 8px;" />
+                <span style="font-weight: 600;">Enable API Tools (Function Calling)</span>
             </label>
-            <div class="form-help">
-                Allow the AI to perform actions by calling your APIs.
-            </div>
+            <div class="form-help">Allow the AI to call your application's APIs.</div>
         </div>
         
         @if (toolsEnabled)
         {
-            <div class="form-group" style="margin-top: 20px;">
-                <label class="form-label">OpenAPI 3.0 Specification</label>
-                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                    <input type="text" class="form-input" @bind="openApiUrl" placeholder="https://your-app.com/swagger/v1/swagger.json" style="flex: 1;" />
-                    <button class="btn btn-secondary" @onclick="ImportOpenAPI">Import from URL</button>
+            <div style="margin-left: 24px; margin-top: 10px;">
+                <div class="form-group">
+                    <label class="form-label">OpenAPI Specification</label>
+                    <textarea class="form-textarea" @bind="openApiSpec" placeholder="Paste OpenAPI 3.0 JSON/YAML..." style="min-height: 100px; font-family: monospace; font-size: 12px;"></textarea>
                 </div>
-                <div class="form-help">Or paste your OpenAPI specification directly:</div>
             </div>
-            
-            <div class="form-group">
-                <textarea class="form-textarea" @bind="openApiSpec" placeholder="Paste your OpenAPI 3.0 JSON or YAML here..." style="min-height: 150px; font-family: 'Consolas', monospace; font-size: 12px;"></textarea>
-            </div>
-            
-            @if (importedTools.Any())
-            {
-                <div style="margin-top: 15px;">
-                    <label class="form-label">Imported Tools (@importedTools.Count)</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        @foreach (var tool in importedTools)
-                        {
-                            <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--azure-gray); border-radius: 4px; font-size: 13px;">
-                                <input type="checkbox" @bind="tool.Enabled" />
-                                <span style="font-weight: 500;">@tool.Name</span>
-                                <span style="color: var(--azure-dark-gray);">(@tool.Method)</span>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
         }
-    </div>
-
-    <div class="card">
-        <div class="card-title">Agent Settings</div>
-        <div class="form-help" style="margin-bottom: 20px;">
-            These settings are configured on your Azure OpenAI agent and control how it generates responses.
+        
+        <div style="margin-top: 20px;">
+            <button class="btn btn-secondary" style="font-size: 13px;" @onclick="ToggleAdvancedSettings">
+                @(showAdvancedSettings ? "Hide" : "Show") Advanced Settings
+            </button>
         </div>
         
-        <div class="form-group">
-            <label class="form-label">Max Tokens per Response</label>
-            <input type="number" class="form-input" @bind="maxTokens" min="100" max="4096" style="width: 150px;" />
-            <div class="form-help">Maximum length of AI responses. This is set on the agent configuration.</div>
-        </div>
-        
-        <div class="form-group">
-            <label class="form-label">Temperature</label>
-            <input type="range" @bind="temperature" min="0" max="2" step="0.1" style="width: 200px;" />
-            <span style="margin-left: 10px;">@temperature</span>
-            <div class="form-help">Controls randomness. Lower values are more focused, higher values more creative. This is set on the agent configuration.</div>
-        </div>
-        
-        <div class="form-group">
-            <label class="form-label" style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-                <div class="toggle-switch @(loggingEnabled ? "active" : "")" @onclick="() => loggingEnabled = !loggingEnabled">
-                    <div class="toggle-slider"></div>
+        @if (showAdvancedSettings)
+        {
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--azure-border);">
+                <div class="form-group">
+                    <label class="form-label">Foundry Endpoint</label>
+                    <input type="text" class="form-input" @bind="foundryEndpoint" placeholder="https://your-foundry.services.ai.azure.com/api/projects/your-project" />
                 </div>
-                <span>Enable Conversation Logging</span>
-            </label>
-            <div class="form-help">Log all conversations for analysis and debugging.</div>
-        </div>
-    </div>
-
-    <div style="margin-top: 20px;">
-        <button class="btn btn-primary" @onclick="SaveConfiguration">Save Configuration</button>
-        <button class="btn btn-secondary" @onclick="Discard">Discard Changes</button>
-        <button class="btn btn-secondary" style="margin-left: 20px;" @onclick="TestAgent">
-            &#129302; Test AI Agent
-        </button>
+                
+                <div class="form-group">
+                    <label class="form-label">Agent ID</label>
+                    <input type="text" class="form-input" @bind="foundryAgentId" placeholder="asst_xxxxxxxxxxxxx" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Chat Model</label>
+                    <select class="form-select" @bind="chatModel">
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="gpt-4o-mini">GPT-4o Mini</option>
+                        <option value="gpt-4">GPT-4</option>
+                        <option value="gpt-35-turbo">GPT-3.5 Turbo</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Embedding Model</label>
+                    <select class="form-select" @bind="embeddingModel">
+                        <option value="text-embedding-3-small">text-embedding-3-small</option>
+                        <option value="text-embedding-3-large">text-embedding-3-large</option>
+                        <option value="text-embedding-ada-002">text-embedding-ada-002</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Managed Identity Client ID</label>
+                    <input type="text" class="form-input" @bind="managedClientId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+            </div>
+        }
     </div>
 }
 
+@if (nlwebEnabled)
+{
+    <div class="card">
+        <div class="card-title">NLWeb Configuration</div>
+        
+        <div class="form-group">
+            <label class="form-label">Chat Widget Path</label>
+            <input type="text" class="form-input" @bind="nlwebChatPath" placeholder="/chat" />
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Widget Position</label>
+            <select class="form-select" @bind="nlwebWidgetPosition">
+                <option value="bottom-right">Bottom Right</option>
+                <option value="bottom-left">Bottom Left</option>
+                <option value="full-page">Full Page</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Welcome Message</label>
+            <textarea class="form-textarea" @bind="nlwebWelcomeMessage" placeholder="Hello! How can I help you today?"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Primary Color</label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="color" @bind="nlwebPrimaryColor" style="width: 50px; height: 32px; padding: 0; border: 1px solid var(--azure-border);" />
+                <span style="color: var(--azure-dark-gray); font-family: monospace;">@nlwebPrimaryColor</span>
+            </div>
+        </div>
+    </div>
+}
+
+@if (mcpServerEnabled || endpointEnabled || nlwebEnabled)
+{
+    <div style="margin-top: 20px;">
+        <button class="btn btn-primary" @onclick="SaveConfiguration" disabled="@isSaving">
+            @if (isSaving)
+            {
+                <span class="loading-spinner" style="width: 14px; height: 14px; margin-right: 8px;"></span>
+            }
+            Save Configuration
+        </button>
+        <button class="btn btn-secondary" @onclick="Discard" disabled="@isSaving">Discard Changes</button>
+    </div>
+    
+    @if (!string.IsNullOrEmpty(saveMessage))
+    {
+        <div class="@saveMessageClass" style="margin-top: 15px;">
+            @saveMessage
+        </div>
+    }
+}
+
 <style>
-    .toggle-switch {
-        width: 50px;
-        height: 26px;
-        background: #ccc;
-        border-radius: 13px;
-        position: relative;
+    .output-checkbox-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .output-checkbox-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 15px;
+        border: 1px solid var(--azure-border);
+        border-radius: 4px;
         cursor: pointer;
-        transition: background 0.3s;
+        transition: all 0.2s;
     }
     
-    .toggle-switch.active {
-        background: var(--azure-blue);
+    .output-checkbox-item:hover {
+        background-color: var(--azure-gray);
     }
     
-    .toggle-slider {
-        width: 22px;
-        height: 22px;
-        background: white;
-        border-radius: 50%;
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        transition: left 0.3s;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    .output-checkbox-item input[type="checkbox"] {
+        margin-top: 2px;
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
     }
     
-    .toggle-switch.active .toggle-slider {
-        left: 26px;
+    .output-checkbox-label {
+        font-weight: 600;
+        font-size: 14px;
+        min-width: 100px;
+    }
+    
+    .output-checkbox-desc {
+        font-size: 13px;
+        color: var(--azure-dark-gray);
     }
 </style>
 
@@ -261,90 +324,356 @@
     [Parameter]
     public EventCallback OnSave { get; set; }
 
-    // Main toggles
-    private bool aiEnabled = false;
+    // Output type toggles
+    private bool mcpServerEnabled = false;
+    private bool endpointEnabled = false;
+    private bool nlwebEnabled = false;
+    
+    // UI state
+    private bool showAdvancedSettings = false;
+    private bool showAddTool = false;
+    private bool isSaving = false;
+    private string saveMessage = string.Empty;
+    private string saveMessageClass = string.Empty;
+    
+    // Endpoint settings
+    private string aiEndpointPath = "ai/chat";
     private bool ragEnabled = false;
+    private string ragOption = "create"; // "create" or "existing"
     private bool toolsEnabled = false;
     
-    // AI Agent settings
-    private string chatEndpointPath = "/ai/chat";
-    private string agentName = "AI Assistant";
-    private string systemPrompt = "";
-    private string azureOpenAiProjectName = "";
-    private string azureOpenAiAgentName = "";
+    // Azure AI Foundry settings
+    private string foundryEndpoint = "";
+    private string foundryAgentId = "";
+    private string chatModel = "gpt-4o";
+    private string embeddingModel = "text-embedding-3-small";
+    private string managedClientId = "";
     
-    // RAG settings
-    private string ragStartUrl = "/";
-    private string ragIncludePatterns = "";
-    private string ragExcludePatterns = "/admin/*\n/login\n/logout";
-    private int ragCrawlDepth = 3;
-    private string ragReindexSchedule = "weekly";
-    private DateTime? lastCrawlDate = null;
+    // RAG / Cosmos DB settings
+    private string cosmosDbEndpoint = "";
+    private string cosmosDbName = "RAGDatabase";
     
     // Tools settings
-    private string openApiUrl = "";
     private string openApiSpec = "";
-    private List<ImportedTool> importedTools = new();
     
-    // Agent settings
-    private int maxTokens = 1024;
-    private double temperature = 0.7;
-    private bool loggingEnabled = true;
+    // MCP Server settings
+    private string mcpEndpointPath = "/.well-known/mcp";
+    private string mcpServerName = "";
+    private string mcpServerDescription = "";
+    private List<MCPTool> mcpTools = new();
+    private MCPTool newTool = new();
+    
+    // NLWeb settings
+    private string nlwebChatPath = "/chat";
+    private string nlwebWidgetPosition = "bottom-right";
+    private string nlwebWelcomeMessage = "Hello! How can I help you today?";
+    private string nlwebPrimaryColor = "#0078d4";
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        if (WebApp != null && string.IsNullOrEmpty(systemPrompt))
+        if (WebApp != null)
         {
-            systemPrompt = $"You are a helpful AI assistant for {WebApp.Name}. Help users with their questions and tasks.";
+            if (string.IsNullOrEmpty(mcpServerName))
+            {
+                mcpServerName = $"{WebApp.Name} MCP Server";
+            }
+            await LoadExistingSettings();
         }
     }
 
-    private void ToggleAI() => aiEnabled = !aiEnabled;
-    private void ToggleRAG() => ragEnabled = !ragEnabled;
-    private void ToggleTools() => toolsEnabled = !toolsEnabled;
-
-    private void StartCrawl()
+    private async Task LoadExistingSettings()
     {
-        // TODO: Implement actual crawling
-        lastCrawlDate = DateTime.Now;
-        Console.WriteLine($"Starting crawl from {ragStartUrl}...");
-    }
-
-    private void ImportOpenAPI()
-    {
-        // TODO: Parse OpenAPI and populate importedTools
-        importedTools = new List<ImportedTool>
+        if (WebApp == null) return;
+        
+        // Get default settings from configuration
+        var defaults = EasyAgentConfig.Value;
+        
+        try
         {
-            new ImportedTool { Name = "getUsers", Method = "GET", Endpoint = "/api/users", Enabled = true },
-            new ImportedTool { Name = "createUser", Method = "POST", Endpoint = "/api/users", Enabled = true },
-            new ImportedTool { Name = "getProducts", Method = "GET", Endpoint = "/api/products", Enabled = true },
-        };
-        Console.WriteLine("Imported OpenAPI specification");
+            var envVars = await ApiService.GetEnvironmentVariablesAsync(WebApp.Name);
+            
+            // Check which output types are enabled
+            var outputTypes = envVars.FirstOrDefault(e => e.Name == "WEBSITE_EASYAGENT_OUTPUT_TYPES")?.Value ?? "";
+            mcpServerEnabled = outputTypes.Contains("mcp-server");
+            endpointEnabled = outputTypes.Contains("endpoint");
+            nlwebEnabled = outputTypes.Contains("nlweb");
+            
+            // Load Foundry settings - use config defaults if not set in web app
+            foundryEndpoint = GetValueOrDefault(envVars, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT", defaults.WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT);
+            foundryAgentId = GetValueOrDefault(envVars, "WEBSITE_EASYAGENT_FOUNDRY_AGENTID", defaults.WEBSITE_EASYAGENT_FOUNDRY_AGENTID);
+            chatModel = GetValueOrDefault(envVars, "WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL", defaults.WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL);
+            embeddingModel = GetValueOrDefault(envVars, "WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL", defaults.WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL);
+            managedClientId = GetValueOrDefault(envVars, "WEBSITE_MANAGED_CLIENT_ID", defaults.WEBSITE_MANAGED_CLIENT_ID);
+            openApiSpec = GetValueOrDefault(envVars, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC", defaults.WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC);
+            
+            // RAG settings - use config defaults if not set
+            aiEndpointPath = envVars.FirstOrDefault(e => e.Name == "WEBSITE_EASYAGENT_ENDPOINT_PATH")?.Value ?? "ai/chat";
+            cosmosDbEndpoint = GetValueOrDefault(envVars, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT", defaults.WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT);
+            cosmosDbName = GetValueOrDefault(envVars, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME", defaults.WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME);
+            ragEnabled = !string.IsNullOrEmpty(cosmosDbEndpoint) || envVars.Any(e => e.Name == "WEBSITE_EASYAGENT_RAG_ENABLED" && e.Value == "true");
+            ragOption = string.IsNullOrEmpty(envVars.FirstOrDefault(e => e.Name == "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT")?.Value) && string.IsNullOrEmpty(defaults.WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT) ? "create" : "existing";
+            toolsEnabled = !string.IsNullOrEmpty(openApiSpec);
+            
+            // MCP settings
+            mcpEndpointPath = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_ENDPOINT_PATH")?.Value ?? "/.well-known/mcp";
+            mcpServerName = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_SERVER_NAME")?.Value ?? $"{WebApp.Name} MCP Server";
+            mcpServerDescription = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_SERVER_DESCRIPTION")?.Value ?? "";
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading existing settings: {ex.Message}");
+        }
+    }
+    
+    private string GetValueOrDefault(List<EnvironmentVariable> envVars, string name, string defaultValue)
+    {
+        var existingValue = envVars.FirstOrDefault(e => e.Name == name)?.Value;
+        return !string.IsNullOrEmpty(existingValue) ? existingValue : defaultValue;
     }
 
-    private void TestAgent()
+    private void ToggleAdvancedSettings() => showAdvancedSettings = !showAdvancedSettings;
+
+    // MCP Tool management
+    private void ShowAddToolDialog()
     {
-        // TODO: Open test chat dialog
-        Console.WriteLine("Testing AI agent...");
+        newTool = new MCPTool { Method = "GET" };
+        showAddTool = true;
+    }
+
+    private void CancelAddTool()
+    {
+        showAddTool = false;
+        newTool = new MCPTool();
+    }
+
+    private void SaveTool()
+    {
+        if (!string.IsNullOrWhiteSpace(newTool.Name) && !string.IsNullOrWhiteSpace(newTool.Endpoint))
+        {
+            mcpTools.Add(newTool);
+            showAddTool = false;
+            newTool = new MCPTool();
+        }
+    }
+
+    private void RemoveTool(MCPTool tool)
+    {
+        mcpTools.Remove(tool);
     }
 
     private async Task SaveConfiguration()
     {
-        await OnSave.InvokeAsync();
+        if (WebApp == null) return;
+        
+        isSaving = true;
+        saveMessage = string.Empty;
+        StateHasChanged();
+        
+        try
+        {
+            var existingVars = await ApiService.GetEnvironmentVariablesAsync(WebApp.Name);
+            var envVarDict = existingVars.ToDictionary(e => e.Name, e => e);
+            
+            // Build output types string
+            var outputTypes = new List<string>();
+            if (mcpServerEnabled) outputTypes.Add("mcp-server");
+            if (endpointEnabled) outputTypes.Add("endpoint");
+            if (nlwebEnabled) outputTypes.Add("nlweb");
+            
+            if (outputTypes.Any())
+            {
+                SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_OUTPUT_TYPES", string.Join(",", outputTypes));
+                
+                // MCP Server settings
+                if (mcpServerEnabled)
+                {
+                    SetEnvironmentVariable(envVarDict, "WEBSITE_MCP_ENDPOINT_PATH", mcpEndpointPath);
+                    SetEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_NAME", mcpServerName);
+                    SetEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_DESCRIPTION", mcpServerDescription);
+                }
+                else
+                {
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_ENDPOINT_PATH");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_NAME");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_DESCRIPTION");
+                }
+                
+                // Endpoint settings
+                if (endpointEnabled)
+                {
+                    SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_ENDPOINT_PATH", aiEndpointPath);
+                    SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT", foundryEndpoint);
+                    SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_AGENTID", foundryAgentId);
+                    SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL", chatModel);
+                    SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL", embeddingModel);
+                    SetEnvironmentVariable(envVarDict, "WEBSITE_MANAGED_CLIENT_ID", managedClientId);
+                    
+                    if (ragEnabled)
+                    {
+                        SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_ENABLED", "true");
+                        if (ragOption == "existing")
+                        {
+                            SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT", cosmosDbEndpoint);
+                            SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME", cosmosDbName);
+                        }
+                        else
+                        {
+                            // Create new - the backend will provision the database
+                            SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_CREATE_NEW", "true");
+                            RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT");
+                            RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME");
+                        }
+                    }
+                    else
+                    {
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_ENABLED");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_CREATE_NEW");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME");
+                    }
+                    
+                    if (toolsEnabled && !string.IsNullOrEmpty(openApiSpec))
+                    {
+                        SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC", openApiSpec);
+                    }
+                    else
+                    {
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC");
+                    }
+                }
+                else
+                {
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_ENDPOINT_PATH");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_AGENTID");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_MANAGED_CLIENT_ID");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_ENABLED");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_CREATE_NEW");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC");
+                }
+                
+                // Install EasyAgent site extension
+                saveMessage = "Installing EasyAgent extension...";
+                StateHasChanged();
+                
+                var extensionInstalled = await ApiService.InstallEasyAgentExtensionAsync(WebApp.Name);
+                if (!extensionInstalled)
+                {
+                    saveMessage = "Warning: Failed to install EasyAgent extension. Configuration saved but extension may need manual installation.";
+                    saveMessageClass = "alert alert-warning";
+                    // Continue with saving env vars anyway
+                }
+            }
+            else
+            {
+                // Remove all AI-related environment variables
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_OUTPUT_TYPES");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_ENDPOINT_PATH");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_AGENTID");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_ENABLED");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_CREATE_NEW");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_MANAGED_CLIENT_ID");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_ENDPOINT_PATH");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_NAME");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_DESCRIPTION");
+                
+                // Uninstall EasyAgent site extension
+                saveMessage = "Removing EasyAgent extension...";
+                StateHasChanged();
+                
+                await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
+            }
+            
+            // Save environment variables
+            saveMessage = "Saving configuration...";
+            StateHasChanged();
+            
+            var allVars = envVarDict.Values.ToList();
+            var success = await ApiService.SaveEnvironmentVariablesAsync(WebApp.Name, allVars);
+            
+            if (success)
+            {
+                saveMessage = outputTypes.Any() 
+                    ? "AI configuration saved and EasyAgent extension installed successfully!" 
+                    : "AI configuration removed successfully!";
+                saveMessageClass = "alert alert-success";
+                await OnSave.InvokeAsync();
+            }
+            else
+            {
+                saveMessage = "Failed to save configuration. Please try again.";
+                saveMessageClass = "alert alert-error";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving configuration: {ex.Message}");
+            saveMessage = $"Error saving configuration: {ex.Message}";
+            saveMessageClass = "alert alert-error";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+    
+    private void SetEnvironmentVariable(Dictionary<string, EnvironmentVariable> envVars, string name, string value)
+    {
+        if (envVars.ContainsKey(name))
+        {
+            envVars[name].Value = value;
+        }
+        else
+        {
+            envVars[name] = new EnvironmentVariable
+            {
+                Name = name,
+                Value = value,
+                Source = "App Service",
+                IsSlotSetting = false,
+                IsValueHidden = true
+            };
+        }
+    }
+    
+    private void RemoveEnvironmentVariable(Dictionary<string, EnvironmentVariable> envVars, string name)
+    {
+        if (envVars.ContainsKey(name))
+        {
+            envVars.Remove(name);
+        }
     }
 
     private void Discard()
     {
-        aiEnabled = false;
+        mcpServerEnabled = false;
+        endpointEnabled = false;
+        nlwebEnabled = false;
         ragEnabled = false;
         toolsEnabled = false;
+        showAdvancedSettings = false;
+        saveMessage = string.Empty;
+        StateHasChanged();
     }
 
-    private class ImportedTool
+    public class MCPTool
     {
         public string Name { get; set; } = "";
-        public string Method { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string Method { get; set; } = "GET";
         public string Endpoint { get; set; } = "";
-        public bool Enabled { get; set; } = true;
     }
 }

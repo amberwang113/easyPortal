@@ -37,11 +37,8 @@ else
             case "environment":
                 <EnvironmentVariables WebAppName="@webApp.Name" OnSave="SaveConfiguration" />
                 break;
-            case "configure-ai-tools":
+            case "ai-integration":
                 <ConfigureAITools WebApp="@webApp" OnSave="SaveConfiguration" />
-                break;
-            case "mcp-development":
-                <MCPDevelopment WebApp="@webApp" OnSave="SaveConfiguration" />
                 break;
             default:
                 <NotImplemented 
@@ -111,7 +108,7 @@ else
         var implementedSections = new[] { "overview", "configuration", "deployment-center", "deployment-slots", "networking", "scale-up", "scale-out", "app-service-plan" };
         
         // Sections that have their own dedicated page
-        var dedicatedSections = new[] { "environment", "configure-ai-tools", "mcp-development" };
+        var dedicatedSections = new[] { "environment", "ai-integration" };
         
         if (section == "overview")
         {
@@ -173,8 +170,7 @@ else
             "visualizer" => "Resource Visualizer",
             
             // AI Center
-            "configure-ai-tools" => "Configure AI Tools",
-            "mcp-development" => "MCP Development",
+            "ai-integration" => "AI Integration",
             
             // Deployment
             "deployment-slots" => "Deployment Slots",

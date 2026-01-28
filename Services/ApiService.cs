@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Text;
+using System.Xml.Linq;
 using DevPortal.Models;
 using Microsoft.Extensions.Options;
 
@@ -877,6 +879,277 @@ public class ApiService
             _logger.LogError(ex, "Failed to fetch metrics for {Id}", id);
             return new Dictionary<string, double>();
         }
+    }
+
+    #endregion
+
+    #region Site Extensions
+
+    /// <summary>
+    /// Installs the EasyAgent site extension on a web app via the Kudu SCM API
+    /// PUT https://{sitename}.scm.azurewebsites.net/api/siteextensions/EasyAgent
+    /// </summary>
+    public async Task<bool> InstallEasyAgentExtensionAsync(string webAppName)
+    {
+        // For mock web apps, simulate success
+        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
+        if (mockWebApp != null)
+        {
+            await Task.Delay(2000); // Simulate installation time
+            _logger.LogInformation("Simulated EasyAgent extension installation for mock web app {Name}", webAppName);
+            return true;
+        }
+
+        if (_useMockData)
+        {
+            await Task.Delay(2000);
+            return true;
+        }
+
+        try
+        {
+            // Get publishing credentials for SCM authentication
+            var credentials = await GetPublishingCredentialsAsync(webAppName);
+            if (credentials == null)
+            {
+                _logger.LogError("Failed to get publishing credentials for {WebAppName}", webAppName);
+                return false;
+            }
+
+            // Build the SCM URL and call Kudu API with Basic Auth
+            var scmUrl = $"https://{webAppName}.scm.azurewebsites.net/api/siteextensions/EasyAgent";
+            _logger.LogInformation("Installing EasyAgent site extension via SCM: {ScmUrl}", scmUrl);
+
+            using var scmClient = CreateScmClient(credentials.Value.userName, credentials.Value.password);
+            var response = await scmClient.PutAsync(scmUrl, null);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to install EasyAgent extension via SCM. Status: {StatusCode}, Response: {Response}",
+                    response.StatusCode, errorContent);
+                return false;
+            }
+
+            _logger.LogInformation("Successfully installed EasyAgent site extension for {WebAppName}", webAppName);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to install EasyAgent site extension for {WebAppName}", webAppName);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Checks if the EasyAgent site extension is installed on a web app
+    /// </summary>
+    public async Task<bool> IsEasyAgentExtensionInstalledAsync(string webAppName)
+    {
+        // For mock web apps, check if AI is configured
+        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
+        if (mockWebApp != null)
+        {
+            await Task.Delay(200);
+            return mockWebApp.AppSettings.ContainsKey("WEBSITE_EASYAGENT_OUTPUT_TYPES");
+        }
+
+        if (_useMockData)
+        {
+            await Task.Delay(200);
+            return false;
+        }
+
+        try
+        {
+            var subscriptionId = _settings.SubscriptionId;
+            var resourceGroup = _settings.ResourceGroup;
+
+            if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+            {
+                return false;
+            }
+
+            var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}/siteextensions/EasyAgent");
+            var response = await _httpClient.GetAsync(endpoint);
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check EasyAgent extension status for {WebAppName}", webAppName);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Uninstalls the EasyAgent site extension from a web app via the Kudu SCM API
+    /// </summary>
+    public async Task<bool> UninstallEasyAgentExtensionAsync(string webAppName)
+    {
+        // For mock web apps, simulate success
+        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
+        if (mockWebApp != null)
+        {
+            await Task.Delay(1000);
+            _logger.LogInformation("Simulated EasyAgent extension uninstall for mock web app {Name}", webAppName);
+            return true;
+        }
+
+        if (_useMockData)
+        {
+            await Task.Delay(1000);
+            return true;
+        }
+
+        try
+        {
+            // Get publishing credentials for SCM authentication
+            var credentials = await GetPublishingCredentialsAsync(webAppName);
+            if (credentials == null)
+            {
+                _logger.LogError("Failed to get publishing credentials for {WebAppName}", webAppName);
+                return false;
+            }
+
+            // Build the SCM URL and call Kudu API with Basic Auth
+            var scmUrl = $"https://{webAppName}.scm.azurewebsites.net/api/siteextensions/EasyAgent";
+            _logger.LogInformation("Uninstalling EasyAgent site extension via SCM: {ScmUrl}", scmUrl);
+
+            using var scmClient = CreateScmClient(credentials.Value.userName, credentials.Value.password);
+            var response = await scmClient.DeleteAsync(scmUrl);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to uninstall EasyAgent extension via SCM. Status: {StatusCode}, Response: {Response}",
+                    response.StatusCode, errorContent);
+                return false;
+            }
+
+            _logger.LogInformation("Successfully uninstalled EasyAgent site extension for {WebAppName}", webAppName);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to uninstall EasyAgent site extension for {WebAppName}", webAppName);
+            return false;
+        }
+    }
+
+    #endregion
+
+    #region Publishing Credentials
+
+    /// <summary>
+    /// Retrieves the publishing credentials (username/password) from the publish profile XML
+    /// POST /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Web/sites/{siteName}/publishxml
+    /// </summary>
+    public async Task<(string userName, string password)?> GetPublishingCredentialsAsync(string webAppName)
+    {
+        // For mock web apps, return mock credentials
+        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
+        if (mockWebApp != null)
+        {
+            await Task.Delay(300);
+            _logger.LogInformation("Returning mock publishing credentials for {WebAppName}", webAppName);
+            return ("$mock-user", "mock-password-12345");
+        }
+
+        if (_useMockData)
+        {
+            await Task.Delay(300);
+            return ("$mock-user", "mock-password-12345");
+        }
+
+        try
+        {
+            var subscriptionId = _settings.SubscriptionId;
+            var resourceGroup = _settings.ResourceGroup;
+
+            if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+            {
+                _logger.LogWarning("Subscription ID or Resource Group not configured");
+                return null;
+            }
+
+            var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}/publishxml");
+            _logger.LogInformation("Fetching publish profile from: {Endpoint}", endpoint);
+
+            var response = await _httpClient.PostAsync(endpoint, null);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to fetch publish profile. Status: {StatusCode}, Response: {Response}",
+                    response.StatusCode, errorContent);
+                return null;
+            }
+
+            var xmlContent = await response.Content.ReadAsStringAsync();
+            return ParsePublishProfileCredentials(xmlContent);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch publishing credentials for {WebAppName}", webAppName);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Parses the publish profile XML to extract the MSDeploy username and password
+    /// </summary>
+    private (string userName, string password)? ParsePublishProfileCredentials(string xmlContent)
+    {
+        try
+        {
+            var doc = XDocument.Parse(xmlContent);
+
+            // Look for the MSDeploy publish profile which contains SCM credentials
+            var msDeployProfile = doc.Descendants("publishProfile")
+                .FirstOrDefault(p => p.Attribute("publishMethod")?.Value == "MSDeploy");
+
+            if (msDeployProfile == null)
+            {
+                // Fallback to any profile with userName and userPWD
+                msDeployProfile = doc.Descendants("publishProfile")
+                    .FirstOrDefault(p => p.Attribute("userName") != null && p.Attribute("userPWD") != null);
+            }
+
+            if (msDeployProfile == null)
+            {
+                _logger.LogWarning("No valid publish profile found in XML");
+                return null;
+            }
+
+            var userName = msDeployProfile.Attribute("userName")?.Value;
+            var password = msDeployProfile.Attribute("userPWD")?.Value;
+
+            if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password))
+            {
+                _logger.LogWarning("Username or password not found in publish profile");
+                return null;
+            }
+
+            _logger.LogInformation("Successfully parsed publishing credentials for user {UserName}", userName);
+            return (userName, password);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to parse publish profile XML");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Creates an HttpClient with Basic Auth configured for SCM site access
+    /// </summary>
+    private HttpClient CreateScmClient(string userName, string password)
+    {
+        var client = new HttpClient();
+        var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{userName}:{password}"));
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+        return client;
     }
 
     #endregion
