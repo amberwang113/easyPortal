@@ -41,6 +41,12 @@
         <div class="card-title">MCP Server Configuration</div>
         
         <div class="form-group">
+            <label class="form-label">OpenAPI Specification</label>
+            <textarea class="form-textarea" @bind="mcpOpenApiSpec" placeholder="Paste OpenAPI 3.0 JSON/YAML specification for your APIs..." style="min-height: 150px; font-family: monospace; font-size: 12px;"></textarea>
+            <div class="form-help">The OpenAPI spec defines which API endpoints will be exposed as MCP tools.</div>
+        </div>
+        
+        <div class="form-group">
             <label class="form-label">MCP Endpoint Path</label>
             <input type="text" class="form-input" @bind="mcpEndpointPath" placeholder="/.well-known/mcp" />
             <div class="form-help">The path where AI assistants will discover your MCP server.</div>
@@ -55,48 +61,6 @@
             <label class="form-label">Server Description</label>
             <textarea class="form-textarea" @bind="mcpServerDescription" placeholder="Describe what your MCP server provides..."></textarea>
         </div>
-        
-        <div class="form-group" style="margin-top: 20px;">
-            <label class="form-label">API Tools</label>
-            <div class="form-help" style="margin-bottom: 10px;">Define API endpoints to expose as MCP tools.</div>
-            
-            @if (mcpTools.Any())
-            {
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
-                    @foreach (var tool in mcpTools)
-                    {
-                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--azure-gray); border-radius: 4px;">
-                            <span style="font-weight: 500;">@tool.Name</span>
-                            <span style="padding: 2px 6px; background: var(--azure-blue); color: white; border-radius: 3px; font-size: 11px;">@tool.Method</span>
-                            <span style="font-family: monospace; font-size: 12px; color: var(--azure-dark-gray);">@tool.Endpoint</span>
-                            <button class="btn btn-secondary" style="margin-left: auto; padding: 2px 8px; font-size: 11px;" @onclick="() => RemoveTool(tool)">Remove</button>
-                        </div>
-                    }
-                </div>
-            }
-            
-            <button class="btn btn-secondary" @onclick="ShowAddToolDialog">+ Add API Tool</button>
-        </div>
-        
-        @if (showAddTool)
-        {
-            <div style="margin-top: 15px; padding: 15px; border: 1px solid var(--azure-blue); border-radius: 4px; background: var(--azure-light-blue);">
-                <div style="display: grid; grid-template-columns: 1fr 100px 1fr; gap: 10px; margin-bottom: 10px;">
-                    <input type="text" class="form-input" @bind="newTool.Name" placeholder="Tool name" />
-                    <select class="form-select" @bind="newTool.Method">
-                        <option value="GET">GET</option>
-                        <option value="POST">POST</option>
-                        <option value="PUT">PUT</option>
-                        <option value="DELETE">DELETE</option>
-                    </select>
-                    <input type="text" class="form-input" @bind="newTool.Endpoint" placeholder="/api/endpoint" />
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-primary" style="padding: 4px 12px;" @onclick="SaveTool">Add</button>
-                    <button class="btn btn-secondary" style="padding: 4px 12px;" @onclick="CancelAddTool">Cancel</button>
-                </div>
-            </div>
-        }
     </div>
 }
 
@@ -274,6 +238,14 @@
             @saveMessage
         </div>
     }
+    
+    @if (!string.IsNullOrEmpty(detailedError))
+    {
+        <div class="alert alert-error" style="margin-top: 15px;">
+            <div style="font-weight: 600; margin-bottom: 8px;">Extension Installation Error Details:</div>
+            <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">@detailedError</pre>
+        </div>
+    }
 }
 
 <style>
@@ -335,6 +307,7 @@
     private bool isSaving = false;
     private string saveMessage = string.Empty;
     private string saveMessageClass = string.Empty;
+    private string detailedError = string.Empty;
     
     // Endpoint settings
     private string aiEndpointPath = "ai/chat";
@@ -360,6 +333,7 @@
     private string mcpEndpointPath = "/.well-known/mcp";
     private string mcpServerName = "";
     private string mcpServerDescription = "";
+    private string mcpOpenApiSpec = "";
     private List<MCPTool> mcpTools = new();
     private MCPTool newTool = new();
     
@@ -418,6 +392,7 @@
             mcpEndpointPath = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_ENDPOINT_PATH")?.Value ?? "/.well-known/mcp";
             mcpServerName = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_SERVER_NAME")?.Value ?? $"{WebApp.Name} MCP Server";
             mcpServerDescription = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_SERVER_DESCRIPTION")?.Value ?? "";
+            mcpOpenApiSpec = GetValueOrDefault(envVars, "WEBSITE_EASYMCP_OPENAPI_SPEC", defaults.WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC);
             
             StateHasChanged();
         }
@@ -469,6 +444,7 @@
         
         isSaving = true;
         saveMessage = string.Empty;
+        detailedError = string.Empty;
         StateHasChanged();
         
         try
@@ -492,12 +468,34 @@
                     SetEnvironmentVariable(envVarDict, "WEBSITE_MCP_ENDPOINT_PATH", mcpEndpointPath);
                     SetEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_NAME", mcpServerName);
                     SetEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_DESCRIPTION", mcpServerDescription);
+                    
+                    // Set the MCP OpenAPI spec
+                    if (!string.IsNullOrEmpty(mcpOpenApiSpec))
+                    {
+                        SetEnvironmentVariable(envVarDict, "WEBSITE_EASYMCP_OPENAPI_SPEC", mcpOpenApiSpec);
+                    }
+                    
+                    // Install EasyMCP site extension
+                    saveMessage = "Installing EasyMCP extension...";
+                    StateHasChanged();
+                    
+                    var mcpResult = await ApiService.InstallEasyMcpExtensionAsync(WebApp.Name);
+                    if (!mcpResult.Success)
+                    {
+                        saveMessage = "Warning: Failed to install EasyMCP extension.";
+                        saveMessageClass = "alert alert-warning";
+                        detailedError = FormatExtensionError("EasyMCP Install", mcpResult);
+                    }
                 }
                 else
                 {
                     RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_ENDPOINT_PATH");
                     RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_NAME");
                     RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_DESCRIPTION");
+                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYMCP_OPENAPI_SPEC");
+                    
+                    // Uninstall EasyMCP extension
+                    await ApiService.UninstallEasyMcpExtensionAsync(WebApp.Name);
                 }
                 
                 // Endpoint settings
@@ -535,42 +533,45 @@
                     }
                     
                     if (toolsEnabled && !string.IsNullOrEmpty(openApiSpec))
-                    {
-                        SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC", openApiSpec);
+                        {
+                            SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC", openApiSpec);
+                        }
+                        else
+                        {
+                            RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC");
+                        }
+                    
+                        // Install EasyAgent site extension (only for Endpoint mode)
+                        saveMessage = "Installing EasyAgent extension...";
+                        StateHasChanged();
+                    
+                        var agentResult = await ApiService.InstallEasyAgentExtensionAsync(WebApp.Name);
+                        if (!agentResult.Success)
+                        {
+                            saveMessage = "Warning: Failed to install EasyAgent extension.";
+                            saveMessageClass = "alert alert-warning";
+                            detailedError += (string.IsNullOrEmpty(detailedError) ? "" : "\n\n") + FormatExtensionError("EasyAgent Install", agentResult);
+                        }
                     }
                     else
                     {
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_ENDPOINT_PATH");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_AGENTID");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_MANAGED_CLIENT_ID");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_ENABLED");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_CREATE_NEW");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT");
+                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME");
                         RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC");
-                    }
-                }
-                else
-                {
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_ENDPOINT_PATH");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_AGENTID");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_MANAGED_CLIENT_ID");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_ENABLED");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_CREATE_NEW");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC");
-                }
-                
-                // Install EasyAgent site extension
-                saveMessage = "Installing EasyAgent extension...";
-                StateHasChanged();
-                
-                var extensionInstalled = await ApiService.InstallEasyAgentExtensionAsync(WebApp.Name);
-                if (!extensionInstalled)
-                {
-                    saveMessage = "Warning: Failed to install EasyAgent extension. Configuration saved but extension may need manual installation.";
-                    saveMessageClass = "alert alert-warning";
-                    // Continue with saving env vars anyway
-                }
-            }
-            else
+                    
+                        // Uninstall EasyAgent extension when Endpoint is disabled
+                                await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
+                            }
+                        }
+                        else
             {
                 // Remove all AI-related environment variables
                 RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_OUTPUT_TYPES");
@@ -588,12 +589,14 @@
                 RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_ENDPOINT_PATH");
                 RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_NAME");
                 RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_DESCRIPTION");
+                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYMCP_OPENAPI_SPEC");
                 
-                // Uninstall EasyAgent site extension
-                saveMessage = "Removing EasyAgent extension...";
+                // Uninstall site extensions
+                saveMessage = "Removing AI extensions...";
                 StateHasChanged();
                 
                 await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
+                await ApiService.UninstallEasyMcpExtensionAsync(WebApp.Name);
             }
             
             // Save environment variables
@@ -605,9 +608,26 @@
             
             if (success)
             {
-                saveMessage = outputTypes.Any() 
-                    ? "AI configuration saved and EasyAgent extension installed successfully!" 
-                    : "AI configuration removed successfully!";
+                if (outputTypes.Any())
+                {
+                    // Build dynamic success message based on what was installed
+                    var installedExtensions = new List<string>();
+                    if (mcpServerEnabled) installedExtensions.Add("EasyMCP");
+                    if (endpointEnabled) installedExtensions.Add("EasyAgent");
+                    
+                    if (installedExtensions.Any())
+                    {
+                        saveMessage = $"AI configuration saved and {string.Join(" and ", installedExtensions)} extension(s) installed successfully!";
+                    }
+                    else
+                    {
+                        saveMessage = "AI configuration saved successfully!";
+                    }
+                }
+                else
+                {
+                    saveMessage = "AI configuration removed successfully!";
+                }
                 saveMessageClass = "alert alert-success";
                 await OnSave.InvokeAsync();
             }
@@ -666,7 +686,30 @@
         toolsEnabled = false;
         showAdvancedSettings = false;
         saveMessage = string.Empty;
+        detailedError = string.Empty;
         StateHasChanged();
+    }
+    
+    private string FormatExtensionError(string operation, ApiService.SiteExtensionResult result)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Operation: {operation}");
+        sb.AppendLine($"Method: {result.Method ?? "N/A"}");
+        sb.AppendLine($"URL: {result.RequestUrl ?? "N/A"}");
+        sb.AppendLine($"Auth: {result.CredentialsUsed ?? "N/A"}");
+        sb.AppendLine($"Status Code: {result.StatusCode?.ToString() ?? "N/A"}");
+        sb.AppendLine($"Error: {result.ErrorMessage ?? "Unknown error"}");
+        if (!string.IsNullOrEmpty(result.RawCredentials))
+        {
+            sb.AppendLine($"--- RAW CREDENTIALS ---");
+            sb.AppendLine(result.RawCredentials);
+            sb.AppendLine($"--- END CREDENTIALS ---");
+        }
+        if (!string.IsNullOrEmpty(result.ResponseBody))
+        {
+            sb.AppendLine($"Response Body: {result.ResponseBody}");
+        }
+        return sb.ToString();
     }
 
     public class MCPTool

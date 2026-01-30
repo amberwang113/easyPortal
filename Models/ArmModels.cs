@@ -52,6 +52,9 @@ public class WebAppResourceProperties
     [JsonPropertyName("hostNames")]
     public List<string> HostNames { get; set; } = new();
     
+    [JsonPropertyName("enabledHostNames")]
+    public List<string>? EnabledHostNames { get; set; }
+    
     [JsonPropertyName("defaultHostName")]
     public string DefaultHostName { get; set; } = string.Empty;
     

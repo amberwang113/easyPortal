@@ -11,21 +11,12 @@ public class ApiService
     private readonly HttpClient _httpClient;
     private readonly ApiSettings _settings;
     private readonly ILogger<ApiService> _logger;
-    private readonly bool _useMockData;
-    private List<WebApp> _mockWebApps;
 
     public ApiService(HttpClient httpClient, IOptions<ApiSettings> settings, ILogger<ApiService> logger)
     {
         _httpClient = httpClient;
         _settings = settings.Value;
         _logger = logger;
-        
-        // Use mock data if no base URL is configured or if it's the placeholder
-        _useMockData = string.IsNullOrEmpty(_settings.BaseUrl) || 
-                       _settings.BaseUrl.Contains("your-backend-api");
-        
-        _mockWebApps = new List<WebApp>();
-        InitializeMockData();
     }
 
     /// <summary>
@@ -37,112 +28,24 @@ public class ApiService
         return $"{endpoint}{separator}api-version={_settings.ApiVersion}";
     }
 
-    private void InitializeMockData()
-    {
-        _mockWebApps = new List<WebApp>
-        {
-            new WebApp
-            {
-                Id = "webapp-001",
-                Name = "my-production-app",
-                ResourceGroup = "production-rg",
-                Location = "East US",
-                Status = "Running",
-                Url = "https://my-production-app.azurewebsites.net",
-                Runtime = ".NET 8.0",
-                AppServicePlan = new AppServicePlan
-                {
-                    Id = "asp-001",
-                    Name = "production-asp",
-                    Tier = "Premium",
-                    Size = "P1v2",
-                    Location = "East US"
-                },
-                CreatedDate = DateTime.UtcNow.AddMonths(-6),
-                LastModifiedDate = DateTime.UtcNow.AddDays(-2),
-                AlwaysOn = true,
-                HttpsOnly = true,
-                ApplicationInsightsEnabled = true,
-                CurrentInstances = 2
-            },
-            new WebApp
-            {
-                Id = "webapp-002",
-                Name = "staging-api",
-                ResourceGroup = "staging-rg",
-                Location = "West US",
-                Status = "Running",
-                Url = "https://staging-api.azurewebsites.net",
-                Runtime = ".NET 8.0",
-                AppServicePlan = new AppServicePlan
-                {
-                    Id = "asp-002",
-                    Name = "staging-asp",
-                    Tier = "Standard",
-                    Size = "S1",
-                    Location = "West US"
-                },
-                CreatedDate = DateTime.UtcNow.AddMonths(-3),
-                LastModifiedDate = DateTime.UtcNow.AddHours(-5),
-                AlwaysOn = true,
-                HttpsOnly = true,
-                CurrentInstances = 1
-            },
-            new WebApp
-            {
-                Id = "webapp-003",
-                Name = "dev-test-app",
-                ResourceGroup = "development-rg",
-                Location = "Central US",
-                Status = "Stopped",
-                Url = "https://dev-test-app.azurewebsites.net",
-                Runtime = ".NET 8.0",
-                AppServicePlan = new AppServicePlan
-                {
-                    Id = "asp-003",
-                    Name = "dev-asp",
-                    Tier = "Basic",
-                    Size = "B1",
-                    Location = "Central US"
-                },
-                CreatedDate = DateTime.UtcNow.AddMonths(-1),
-                LastModifiedDate = DateTime.UtcNow.AddDays(-10),
-                AlwaysOn = false,
-                HttpsOnly = true,
-                CurrentInstances = 1
-            }
-        };
-    }
-
     #region Web Apps
 
     public async Task<List<WebApp>> GetWebAppsAsync()
     {
-        // Always start with mock data so test websites remain clickable
-        var allWebApps = new List<WebApp>(_mockWebApps);
-        
-        // If using mock data only, return just the mock apps
-        if (_useMockData)
-        {
-            await Task.Delay(500);
-            return allWebApps;
-        }
-
-        // Try to fetch real web apps from the API and merge them
         try
         {
             var subscriptionId = _settings.SubscriptionId;
             if (string.IsNullOrEmpty(subscriptionId))
             {
-                _logger.LogWarning("No subscription ID configured, returning mock data only");
-                return allWebApps;
+                _logger.LogWarning("No subscription ID configured");
+                return new List<WebApp>();
             }
 
             var resourceGroup = _settings.ResourceGroup;
             if (string.IsNullOrEmpty(resourceGroup))
             {
-                _logger.LogWarning("No resource group configured, returning mock data only");
-                return allWebApps;
+                _logger.LogWarning("No resource group configured");
+                return new List<WebApp>();
             }
 
             var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites");
@@ -155,30 +58,25 @@ public class ApiService
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogError("API request failed with status {StatusCode}: {ReasonPhrase}. Response: {ErrorContent}", 
                     (int)response.StatusCode, response.ReasonPhrase, errorContent);
+                return new List<WebApp>();
             }
-            
-            response.EnsureSuccessStatusCode();
             
             var listResponse = await response.Content.ReadFromJsonAsync<ListResponse<WebAppResource>>();
             if (listResponse?.Value != null && listResponse.Value.Count > 0)
             {
-                var realWebApps = listResponse.Value.Select(MapWebAppResourceToWebApp).ToList();
-                _logger.LogInformation("Retrieved {Count} web apps from API", realWebApps.Count);
-                
-                // Add real web apps to the list (after mock data)
-                allWebApps.AddRange(realWebApps);
+                var webApps = listResponse.Value.Select(MapWebAppResourceToWebApp).ToList();
+                _logger.LogInformation("Retrieved {Count} web apps from API", webApps.Count);
+                return webApps;
             }
-            else
-            {
-                _logger.LogWarning("Empty response from API, returning mock data only");
-            }
+            
+            _logger.LogWarning("Empty response from API");
+            return new List<WebApp>();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to fetch web apps from API, returning mock data only");
+            _logger.LogError(ex, "Failed to fetch web apps from API");
+            return new List<WebApp>();
         }
-
-        return allWebApps;
     }
 
     private static WebApp MapWebAppResourceToWebApp(WebAppResource webAppResource)
@@ -281,67 +179,43 @@ public class ApiService
 
     public async Task<WebApp?> GetWebAppAsync(string id)
     {
-        // First check if it's a mock web app (so test websites remain clickable)
-        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == id || w.Name == id);
-        if (mockWebApp != null)
+        try
         {
-            await Task.Delay(300);
-            return mockWebApp;
+            _logger.LogInformation("Fetching web app {Id} from API", id);
+            
+            var subscriptionId = _settings.SubscriptionId;
+            var resourceGroup = _settings.ResourceGroup;
+            
+            if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+            {
+                _logger.LogWarning("Subscription ID or Resource Group not configured");
+                return null;
+            }
+            
+            var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{id}");
+            var response = await _httpClient.GetAsync(endpoint);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var webAppResource = await response.Content.ReadFromJsonAsync<WebAppResource>();
+                if (webAppResource != null)
+                {
+                    return MapWebAppResourceToWebApp(webAppResource);
+                }
+            }
+            
+            _logger.LogWarning("Web app {Id} not found, status: {Status}", id, response.StatusCode);
+            return null;
         }
-        
-        // If not mock data only mode, try to fetch from API
-        if (!_useMockData)
+        catch (Exception ex)
         {
-            try
-            {
-                _logger.LogInformation("Fetching web app {Id} from API", id);
-                
-                // Build the ARM resource ID from the web app name
-                var subscriptionId = _settings.SubscriptionId;
-                var resourceGroup = _settings.ResourceGroup;
-                
-                if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
-                {
-                    _logger.LogWarning("Subscription ID or Resource Group not configured");
-                    return null;
-                }
-                
-                // Construct the endpoint using the web app name
-                var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{id}");
-                var response = await _httpClient.GetAsync(endpoint);
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    var webAppResource = await response.Content.ReadFromJsonAsync<WebAppResource>();
-                    if (webAppResource != null)
-                    {
-                        return MapWebAppResourceToWebApp(webAppResource);
-                    }
-                }
-                
-                _logger.LogWarning("Web app {Id} not found, status: {Status}", id, response.StatusCode);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to fetch web app {Id} from API", id);
-            }
+            _logger.LogError(ex, "Failed to fetch web app {Id} from API", id);
+            return null;
         }
-
-        return null;
     }
 
     public async Task<WebApp> CreateWebAppAsync(WebApp webApp)
     {
-        if (_useMockData)
-        {
-            await Task.Delay(1000);
-            webApp.Id = $"webapp-{Guid.NewGuid().ToString("N")[..8]}";
-            webApp.CreatedDate = DateTime.UtcNow;
-            webApp.LastModifiedDate = DateTime.UtcNow;
-            _mockWebApps.Add(webApp);
-            return webApp;
-        }
-
         try
         {
             _logger.LogInformation("Creating web app via API");
@@ -358,20 +232,6 @@ public class ApiService
 
     public async Task<WebApp> UpdateWebAppAsync(string id, WebApp webApp)
     {
-        if (_useMockData)
-        {
-            await Task.Delay(800);
-            var existing = _mockWebApps.FirstOrDefault(w => w.Id == id);
-            if (existing != null)
-            {
-                var index = _mockWebApps.IndexOf(existing);
-                webApp.Id = id;
-                webApp.LastModifiedDate = DateTime.UtcNow;
-                _mockWebApps[index] = webApp;
-            }
-            return webApp;
-        }
-
         try
         {
             _logger.LogInformation("Updating web app {Id} via API", id);
@@ -388,18 +248,6 @@ public class ApiService
 
     public async Task<bool> DeleteWebAppAsync(string id)
     {
-        if (_useMockData)
-        {
-            await Task.Delay(1000);
-            var webApp = _mockWebApps.FirstOrDefault(w => w.Id == id);
-            if (webApp != null)
-            {
-                _mockWebApps.Remove(webApp);
-                return true;
-            }
-            return false;
-        }
-
         try
         {
             _logger.LogInformation("Deleting web app {Id} via API", id);
@@ -415,19 +263,6 @@ public class ApiService
 
     public async Task<bool> StartWebAppAsync(string id)
     {
-        if (_useMockData)
-        {
-            await Task.Delay(2000);
-            var webApp = _mockWebApps.FirstOrDefault(w => w.Id == id);
-            if (webApp != null)
-            {
-                webApp.Status = "Running";
-                webApp.LastModifiedDate = DateTime.UtcNow;
-                return true;
-            }
-            return false;
-        }
-
         try
         {
             _logger.LogInformation("Starting web app {Id} via API", id);
@@ -443,19 +278,6 @@ public class ApiService
 
     public async Task<bool> StopWebAppAsync(string id)
     {
-        if (_useMockData)
-        {
-            await Task.Delay(2000);
-            var webApp = _mockWebApps.FirstOrDefault(w => w.Id == id);
-            if (webApp != null)
-            {
-                webApp.Status = "Stopped";
-                webApp.LastModifiedDate = DateTime.UtcNow;
-                return true;
-            }
-            return false;
-        }
-
         try
         {
             _logger.LogInformation("Stopping web app {Id} via API", id);
@@ -471,18 +293,6 @@ public class ApiService
 
     public async Task<bool> RestartWebAppAsync(string id)
     {
-        if (_useMockData)
-        {
-            await Task.Delay(3000);
-            var webApp = _mockWebApps.FirstOrDefault(w => w.Id == id);
-            if (webApp != null)
-            {
-                webApp.LastModifiedDate = DateTime.UtcNow;
-                return true;
-            }
-            return false;
-        }
-
         try
         {
             _logger.LogInformation("Restarting web app {Id} via API", id);
@@ -505,27 +315,6 @@ public class ApiService
     /// </summary>
     public async Task<List<EnvironmentVariable>> GetEnvironmentVariablesAsync(string webAppName)
     {
-        // Check for mock web app first
-        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
-        if (mockWebApp != null)
-        {
-            await Task.Delay(300);
-            return mockWebApp.AppSettings.Select(kvp => new EnvironmentVariable
-            {
-                Name = kvp.Key,
-                Value = kvp.Value,
-                Source = "App Service",
-                IsSlotSetting = false,
-                IsValueHidden = true
-            }).ToList();
-        }
-
-        if (_useMockData)
-        {
-            await Task.Delay(300);
-            return new List<EnvironmentVariable>();
-        }
-
         try
         {
             var subscriptionId = _settings.SubscriptionId;
@@ -562,7 +351,7 @@ public class ApiService
                 Name = kvp.Key,
                 Value = kvp.Value,
                 Source = DetermineSettingSource(kvp.Value),
-                IsSlotSetting = false, // Would need separate API call to get slot settings
+                IsSlotSetting = false,
                 IsValueHidden = true
             }).OrderBy(e => e.Name).ToList();
 
@@ -581,28 +370,6 @@ public class ApiService
     /// </summary>
     public async Task<List<ConnectionStringEntry>> GetConnectionStringsAsync(string webAppName)
     {
-        // Check for mock web app first
-        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
-        if (mockWebApp != null)
-        {
-            await Task.Delay(300);
-            return mockWebApp.ConnectionStrings.Select(kvp => new ConnectionStringEntry
-            {
-                Name = kvp.Key,
-                Value = kvp.Value,
-                Type = "Custom",
-                Source = "App Service",
-                IsSlotSetting = false,
-                IsValueHidden = true
-            }).ToList();
-        }
-
-        if (_useMockData)
-        {
-            await Task.Delay(300);
-            return new List<ConnectionStringEntry>();
-        }
-
         try
         {
             var subscriptionId = _settings.SubscriptionId;
@@ -672,23 +439,6 @@ public class ApiService
     /// </summary>
     public async Task<bool> SaveEnvironmentVariablesAsync(string webAppName, List<EnvironmentVariable> environmentVariables)
     {
-        // Check for mock web app first
-        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
-        if (mockWebApp != null)
-        {
-            await Task.Delay(500);
-            mockWebApp.AppSettings = environmentVariables.ToDictionary(e => e.Name, e => e.Value);
-            mockWebApp.LastModifiedDate = DateTime.UtcNow;
-            _logger.LogInformation("Saved {Count} app settings to mock web app {Name}", environmentVariables.Count, webAppName);
-            return true;
-        }
-
-        if (_useMockData)
-        {
-            await Task.Delay(500);
-            return true;
-        }
-
         try
         {
             var subscriptionId = _settings.SubscriptionId;
@@ -735,23 +485,6 @@ public class ApiService
     /// </summary>
     public async Task<bool> SaveConnectionStringsAsync(string webAppName, List<ConnectionStringEntry> connectionStrings)
     {
-        // Check for mock web app first
-        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
-        if (mockWebApp != null)
-        {
-            await Task.Delay(500);
-            mockWebApp.ConnectionStrings = connectionStrings.ToDictionary(c => c.Name, c => c.Value);
-            mockWebApp.LastModifiedDate = DateTime.UtcNow;
-            _logger.LogInformation("Saved {Count} connection strings to mock web app {Name}", connectionStrings.Count, webAppName);
-            return true;
-        }
-
-        if (_useMockData)
-        {
-            await Task.Delay(500);
-            return true;
-        }
-
         try
         {
             var subscriptionId = _settings.SubscriptionId;
@@ -795,13 +528,6 @@ public class ApiService
 
     public async Task<Dictionary<string, string>> GetAppSettingsAsync(string id)
     {
-        if (_useMockData)
-        {
-            await Task.Delay(300);
-            var webApp = _mockWebApps.FirstOrDefault(w => w.Id == id);
-            return webApp?.AppSettings ?? new Dictionary<string, string>();
-        }
-
         try
         {
             var response = await _httpClient.GetAsync($"/api/webapps/{id}/settings");
@@ -821,19 +547,6 @@ public class ApiService
 
     public async Task<bool> UpdateAppSettingsAsync(string id, Dictionary<string, string> settings)
     {
-        if (_useMockData)
-        {
-            await Task.Delay(800);
-            var webApp = _mockWebApps.FirstOrDefault(w => w.Id == id);
-            if (webApp != null)
-            {
-                webApp.AppSettings = settings;
-                webApp.LastModifiedDate = DateTime.UtcNow;
-                return true;
-            }
-            return false;
-        }
-
         try
         {
             var response = await _httpClient.PutAsJsonAsync($"/api/webapps/{id}/settings", settings);
@@ -852,18 +565,6 @@ public class ApiService
 
     public async Task<Dictionary<string, double>> GetMetricsAsync(string id)
     {
-        if (_useMockData)
-        {
-            await Task.Delay(500);
-            return new Dictionary<string, double>
-            {
-                { "CPU", Random.Shared.NextDouble() * 100 },
-                { "Memory", Random.Shared.NextDouble() * 100 },
-                { "Requests", Random.Shared.Next(1000, 10000) },
-                { "ResponseTime", Random.Shared.NextDouble() * 1000 }
-            };
-        }
-
         try
         {
             var response = await _httpClient.GetAsync($"/api/webapps/{id}/metrics");
@@ -885,272 +586,498 @@ public class ApiService
 
     #region Site Extensions
 
-    /// <summary>
-    /// Installs the EasyAgent site extension on a web app via the Kudu SCM API
-    /// PUT https://{sitename}.scm.azurewebsites.net/api/siteextensions/EasyAgent
-    /// </summary>
-    public async Task<bool> InstallEasyAgentExtensionAsync(string webAppName)
-    {
-        // For mock web apps, simulate success
-        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
-        if (mockWebApp != null)
+        /// <summary>
+        /// Result object for site extension operations with detailed error info
+        /// </summary>
+        public class SiteExtensionResult
         {
-            await Task.Delay(2000); // Simulate installation time
-            _logger.LogInformation("Simulated EasyAgent extension installation for mock web app {Name}", webAppName);
-            return true;
+            public bool Success { get; set; }
+            public int? StatusCode { get; set; }
+            public string? ErrorMessage { get; set; }
+            public string? RequestUrl { get; set; }
+            public string? ResponseBody { get; set; }
+            public string? CredentialsUsed { get; set; }
+            public string? Method { get; set; }
+            public string? RawCredentials { get; set; }
         }
 
-        if (_useMockData)
+        /// <summary>
+        /// Installs the EasyAgent site extension on a web app via the Kudu SCM API
+        /// PUT https://{scm-url}/api/siteextensions/EasyAgent
+        /// </summary>
+        public async Task<SiteExtensionResult> InstallEasyAgentExtensionAsync(string webAppName)
         {
-            await Task.Delay(2000);
-            return true;
-        }
-
-        try
-        {
-            // Get publishing credentials for SCM authentication
-            var credentials = await GetPublishingCredentialsAsync(webAppName);
-            if (credentials == null)
+            var result = new SiteExtensionResult();
+            result.Method = "PUT (SCM/Kudu API)";
+        
+            try
             {
-                _logger.LogError("Failed to get publishing credentials for {WebAppName}", webAppName);
+                // Get publishing credentials for SCM authentication
+                var credentials = await GetPublishingCredentialsAsync(webAppName);
+                if (credentials == null)
+                {
+                    result.ErrorMessage = "Failed to get publishing credentials - check ARM API access";
+                    _logger.LogError("Failed to get publishing credentials for {WebAppName}", webAppName);
+                    return result;
+                }
+
+                var userName = credentials.UserName;
+                var password = credentials.Password;
+                var scmBaseUrl = credentials.ScmUrl;
+            
+                if (string.IsNullOrEmpty(scmBaseUrl))
+                {
+                    result.ErrorMessage = "Could not determine SCM URL from publish profile or site properties";
+                    return result;
+                }
+            
+                // Show full credentials for debugging (will be visible in UI)
+                result.RawCredentials = $"Username: {userName}\nPassword: {password}\nSCM Base URL: {scmBaseUrl}";
+                result.CredentialsUsed = $"User: {userName} | Pass: {password.Substring(0, Math.Min(10, password.Length))}... (len={password.Length})";
+
+                // Build the SCM URL for the extension
+                var scmUrl = $"{scmBaseUrl}/api/siteextensions/EasyAgent";
+                result.RequestUrl = scmUrl;
+            
+                _logger.LogInformation("Installing EasyAgent via SCM: {ScmUrl} with user {User}", scmUrl, userName);
+
+                using var scmClient = CreateScmClient(userName, password);
+                var response = await scmClient.PutAsync(scmUrl, null);
+            
+                result.StatusCode = (int)response.StatusCode;
+                result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    result.ErrorMessage = $"SCM returned {response.StatusCode}";
+                    _logger.LogError("Failed to install EasyAgent. URL: {Url}, Status: {StatusCode}, Response: {Response}",
+                        scmUrl, response.StatusCode, result.ResponseBody);
+                    return result;
+                }
+
+                result.Success = true;
+                _logger.LogInformation("Successfully installed EasyAgent for {WebAppName}", webAppName);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = $"Exception: {ex.Message}";
+                _logger.LogError(ex, "Exception installing EasyAgent for {WebAppName}", webAppName);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Checks if the EasyAgent site extension is installed on a web app
+        /// </summary>
+        public async Task<bool> IsEasyAgentExtensionInstalledAsync(string webAppName)
+        {
+            try
+            {
+                var credentials = await GetPublishingCredentialsAsync(webAppName);
+                if (credentials == null || string.IsNullOrEmpty(credentials.ScmUrl)) return false;
+
+                var scmUrl = $"{credentials.ScmUrl}/api/siteextensions/EasyAgent";
+                using var scmClient = CreateScmClient(credentials.UserName, credentials.Password);
+                var response = await scmClient.GetAsync(scmUrl);
+
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to check EasyAgent extension status for {WebAppName}", webAppName);
                 return false;
             }
+        }
 
-            // Build the SCM URL and call Kudu API with Basic Auth
-            var scmUrl = $"https://{webAppName}.scm.azurewebsites.net/api/siteextensions/EasyAgent";
-            _logger.LogInformation("Installing EasyAgent site extension via SCM: {ScmUrl}", scmUrl);
-
-            using var scmClient = CreateScmClient(credentials.Value.userName, credentials.Value.password);
-            var response = await scmClient.PutAsync(scmUrl, null);
-
-            if (!response.IsSuccessStatusCode)
+        /// <summary>
+        /// Uninstalls the EasyAgent site extension from a web app via the Kudu SCM API
+        /// </summary>
+        public async Task<SiteExtensionResult> UninstallEasyAgentExtensionAsync(string webAppName)
+        {
+            var result = new SiteExtensionResult();
+            result.Method = "DELETE (SCM/Kudu API)";
+        
+            try
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Failed to install EasyAgent extension via SCM. Status: {StatusCode}, Response: {Response}",
-                    response.StatusCode, errorContent);
+                var credentials = await GetPublishingCredentialsAsync(webAppName);
+                if (credentials == null)
+                {
+                    result.ErrorMessage = "Failed to get publishing credentials";
+                    return result;
+                }
+
+                var userName = credentials.UserName;
+                var password = credentials.Password;
+                var scmBaseUrl = credentials.ScmUrl;
+            
+                if (string.IsNullOrEmpty(scmBaseUrl))
+                {
+                    result.ErrorMessage = "Could not determine SCM URL";
+                    return result;
+                }
+            
+                result.CredentialsUsed = $"User: {userName} | Pass: {password.Substring(0, Math.Min(10, password.Length))}...";
+
+                var scmUrl = $"{scmBaseUrl}/api/siteextensions/EasyAgent";
+                result.RequestUrl = scmUrl;
+            
+                _logger.LogInformation("Uninstalling EasyAgent via SCM: {ScmUrl}", scmUrl);
+
+                using var scmClient = CreateScmClient(userName, password);
+                var response = await scmClient.DeleteAsync(scmUrl);
+            
+                result.StatusCode = (int)response.StatusCode;
+                result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+                // 404 is OK for uninstall - means it's already not there
+                if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NotFound)
+                {
+                    result.ErrorMessage = $"SCM returned {response.StatusCode}";
+                    return result;
+                }
+
+                result.Success = true;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = $"Exception: {ex.Message}";
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Installs the EasyMCP site extension on a web app via the Kudu SCM API
+        /// PUT https://{scm-url}/api/siteextensions/EasyMCP
+        /// </summary>
+        public async Task<SiteExtensionResult> InstallEasyMcpExtensionAsync(string webAppName)
+        {
+            var result = new SiteExtensionResult();
+            result.Method = "PUT (SCM/Kudu API)";
+        
+            try
+            {
+                var credentials = await GetPublishingCredentialsAsync(webAppName);
+                if (credentials == null)
+                {
+                    result.ErrorMessage = "Failed to get publishing credentials - check ARM API access";
+                    _logger.LogError("Failed to get publishing credentials for {WebAppName}", webAppName);
+                    return result;
+                }
+
+                var userName = credentials.UserName;
+                var password = credentials.Password;
+                var scmBaseUrl = credentials.ScmUrl;
+            
+                if (string.IsNullOrEmpty(scmBaseUrl))
+                {
+                    result.ErrorMessage = "Could not determine SCM URL from publish profile or site properties";
+                    return result;
+                }
+            
+                // Show full credentials for debugging (will be visible in UI)
+                result.RawCredentials = $"Username: {userName}\nPassword: {password}\nSCM Base URL: {scmBaseUrl}";
+                result.CredentialsUsed = $"User: {userName} | Pass: {password.Substring(0, Math.Min(10, password.Length))}... (len={password.Length})";
+
+                var scmUrl = $"{scmBaseUrl}/api/siteextensions/EasyMCP";
+                result.RequestUrl = scmUrl;
+            
+                _logger.LogInformation("Installing EasyMCP via SCM: {ScmUrl} with user {User}", scmUrl, userName);
+
+                using var scmClient = CreateScmClient(userName, password);
+                var response = await scmClient.PutAsync(scmUrl, null);
+            
+                result.StatusCode = (int)response.StatusCode;
+                result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    result.ErrorMessage = $"SCM returned {response.StatusCode}";
+                    _logger.LogError("Failed to install EasyMCP. URL: {Url}, Status: {StatusCode}, Response: {Response}",
+                        scmUrl, response.StatusCode, result.ResponseBody);
+                    return result;
+                }
+
+                result.Success = true;
+                _logger.LogInformation("Successfully installed EasyMCP for {WebAppName}", webAppName);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = $"Exception: {ex.Message}";
+                _logger.LogError(ex, "Exception installing EasyMCP for {WebAppName}", webAppName);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Checks if the EasyMCP site extension is installed on a web app
+        /// </summary>
+        public async Task<bool> IsEasyMcpExtensionInstalledAsync(string webAppName)
+        {
+            try
+            {
+                var credentials = await GetPublishingCredentialsAsync(webAppName);
+                if (credentials == null || string.IsNullOrEmpty(credentials.ScmUrl)) return false;
+
+                var scmUrl = $"{credentials.ScmUrl}/api/siteextensions/EasyMCP";
+                using var scmClient = CreateScmClient(credentials.UserName, credentials.Password);
+                var response = await scmClient.GetAsync(scmUrl);
+
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to check EasyMCP extension status for {WebAppName}", webAppName);
                 return false;
             }
-
-            _logger.LogInformation("Successfully installed EasyAgent site extension for {WebAppName}", webAppName);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to install EasyAgent site extension for {WebAppName}", webAppName);
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Checks if the EasyAgent site extension is installed on a web app
-    /// </summary>
-    public async Task<bool> IsEasyAgentExtensionInstalledAsync(string webAppName)
-    {
-        // For mock web apps, check if AI is configured
-        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
-        if (mockWebApp != null)
-        {
-            await Task.Delay(200);
-            return mockWebApp.AppSettings.ContainsKey("WEBSITE_EASYAGENT_OUTPUT_TYPES");
         }
 
-        if (_useMockData)
+        /// <summary>
+        /// Uninstalls the EasyMCP site extension from a web app via the Kudu SCM API
+        /// </summary>
+        public async Task<SiteExtensionResult> UninstallEasyMcpExtensionAsync(string webAppName)
         {
-            await Task.Delay(200);
-            return false;
-        }
-
-        try
-        {
-            var subscriptionId = _settings.SubscriptionId;
-            var resourceGroup = _settings.ResourceGroup;
-
-            if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+            var result = new SiteExtensionResult();
+            result.Method = "DELETE (SCM/Kudu API)";
+        
+            try
             {
-                return false;
+                var credentials = await GetPublishingCredentialsAsync(webAppName);
+                if (credentials == null)
+                {
+                    result.ErrorMessage = "Failed to get publishing credentials";
+                    return result;
+                }
+
+                var userName = credentials.UserName;
+                var password = credentials.Password;
+                var scmBaseUrl = credentials.ScmUrl;
+            
+                if (string.IsNullOrEmpty(scmBaseUrl))
+                {
+                    result.ErrorMessage = "Could not determine SCM URL";
+                    return result;
+                }
+            
+                result.CredentialsUsed = $"User: {userName} | Pass: {password.Substring(0, Math.Min(10, password.Length))}...";
+
+                var scmUrl = $"{scmBaseUrl}/api/siteextensions/EasyMCP";
+                result.RequestUrl = scmUrl;
+            
+                _logger.LogInformation("Uninstalling EasyMCP via SCM: {ScmUrl}", scmUrl);
+
+                using var scmClient = CreateScmClient(userName, password);
+                var response = await scmClient.DeleteAsync(scmUrl);
+            
+                result.StatusCode = (int)response.StatusCode;
+                result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+                // 404 is OK for uninstall - means it's already not there
+                if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NotFound)
+                {
+                    result.ErrorMessage = $"SCM returned {response.StatusCode}";
+                    return result;
+                }
+
+                result.Success = true;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = $"Exception: {ex.Message}";
+                return result;
+            }
+        }
+
+        #endregion
+
+        #region Publishing Credentials
+
+            /// <summary>
+            /// Publishing credentials including SCM URL
+            /// </summary>
+            public class PublishingCredentials
+            {
+                public string UserName { get; set; } = string.Empty;
+                public string Password { get; set; } = string.Empty;
+                public string? ScmUrl { get; set; }
             }
 
-            var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}/siteextensions/EasyAgent");
-            var response = await _httpClient.GetAsync(endpoint);
-
-            return response.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to check EasyAgent extension status for {WebAppName}", webAppName);
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Uninstalls the EasyAgent site extension from a web app via the Kudu SCM API
-    /// </summary>
-    public async Task<bool> UninstallEasyAgentExtensionAsync(string webAppName)
-    {
-        // For mock web apps, simulate success
-        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
-        if (mockWebApp != null)
-        {
-            await Task.Delay(1000);
-            _logger.LogInformation("Simulated EasyAgent extension uninstall for mock web app {Name}", webAppName);
-            return true;
-        }
-
-        if (_useMockData)
-        {
-            await Task.Delay(1000);
-            return true;
-        }
-
-        try
-        {
-            // Get publishing credentials for SCM authentication
-            var credentials = await GetPublishingCredentialsAsync(webAppName);
-            if (credentials == null)
+            /// <summary>
+            /// Retrieves the publishing credentials (username/password/scmUrl) from the publish profile XML
+            /// POST /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Web/sites/{siteName}/publishxml
+            /// </summary>
+            public async Task<PublishingCredentials?> GetPublishingCredentialsAsync(string webAppName)
             {
-                _logger.LogError("Failed to get publishing credentials for {WebAppName}", webAppName);
-                return false;
+                try
+                {
+                    var subscriptionId = _settings.SubscriptionId;
+                    var resourceGroup = _settings.ResourceGroup;
+
+                    if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+                    {
+                        _logger.LogWarning("Subscription ID or Resource Group not configured");
+                        return null;
+                    }
+
+                    var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}/publishxml");
+                    _logger.LogInformation("Fetching publish profile from: {Endpoint}", endpoint);
+
+                    var response = await _httpClient.PostAsync(endpoint, null);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        _logger.LogError("Failed to fetch publish profile. Status: {StatusCode}, Response: {Response}",
+                            response.StatusCode, errorContent);
+                        return null;
+                    }
+
+                    var xmlContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogDebug("Publish profile XML received: {Xml}", xmlContent);
+            
+                    var credentials = ParsePublishProfileCredentials(xmlContent);
+            
+                    // If no SCM URL from publish profile, try to get from site enabledHostNames
+                    if (credentials != null && string.IsNullOrEmpty(credentials.ScmUrl))
+                    {
+                        credentials.ScmUrl = await GetScmUrlFromSiteAsync(webAppName);
+                    }
+            
+                    return credentials;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to fetch publishing credentials for {WebAppName}", webAppName);
+                    return null;
+                }
             }
 
-            // Build the SCM URL and call Kudu API with Basic Auth
-            var scmUrl = $"https://{webAppName}.scm.azurewebsites.net/api/siteextensions/EasyAgent";
-            _logger.LogInformation("Uninstalling EasyAgent site extension via SCM: {ScmUrl}", scmUrl);
-
-            using var scmClient = CreateScmClient(credentials.Value.userName, credentials.Value.password);
-            var response = await scmClient.DeleteAsync(scmUrl);
-
-            if (!response.IsSuccessStatusCode)
+            /// <summary>
+            /// Gets the SCM URL from the site's enabledHostNames
+            /// </summary>
+            private async Task<string?> GetScmUrlFromSiteAsync(string webAppName)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Failed to uninstall EasyAgent extension via SCM. Status: {StatusCode}, Response: {Response}",
-                    response.StatusCode, errorContent);
-                return false;
+                try
+                {
+                    var subscriptionId = _settings.SubscriptionId;
+                    var resourceGroup = _settings.ResourceGroup;
+
+                    var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}");
+                    var response = await _httpClient.GetAsync(endpoint);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        return null;
+                    }
+
+                    var webAppResource = await response.Content.ReadFromJsonAsync<WebAppResource>();
+                    if (webAppResource?.Properties?.EnabledHostNames != null)
+                    {
+                        // Find the SCM hostname (contains ".scm.")
+                        var scmHostName = webAppResource.Properties.EnabledHostNames
+                            .FirstOrDefault(h => h.Contains(".scm.", StringComparison.OrdinalIgnoreCase));
+                
+                        if (!string.IsNullOrEmpty(scmHostName))
+                        {
+                            _logger.LogInformation("Found SCM URL from enabledHostNames: {ScmUrl}", scmHostName);
+                            return $"https://{scmHostName}";
+                        }
+                    }
+
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to get SCM URL from site for {WebAppName}", webAppName);
+                    return null;
+                }
             }
 
-            _logger.LogInformation("Successfully uninstalled EasyAgent site extension for {WebAppName}", webAppName);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to uninstall EasyAgent site extension for {WebAppName}", webAppName);
-            return false;
-        }
-    }
-
-    #endregion
-
-    #region Publishing Credentials
-
-    /// <summary>
-    /// Retrieves the publishing credentials (username/password) from the publish profile XML
-    /// POST /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Web/sites/{siteName}/publishxml
-    /// </summary>
-    public async Task<(string userName, string password)?> GetPublishingCredentialsAsync(string webAppName)
-    {
-        // For mock web apps, return mock credentials
-        var mockWebApp = _mockWebApps.FirstOrDefault(w => w.Id == webAppName || w.Name == webAppName);
-        if (mockWebApp != null)
-        {
-            await Task.Delay(300);
-            _logger.LogInformation("Returning mock publishing credentials for {WebAppName}", webAppName);
-            return ("$mock-user", "mock-password-12345");
-        }
-
-        if (_useMockData)
-        {
-            await Task.Delay(300);
-            return ("$mock-user", "mock-password-12345");
-        }
-
-        try
-        {
-            var subscriptionId = _settings.SubscriptionId;
-            var resourceGroup = _settings.ResourceGroup;
-
-            if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+            /// <summary>
+            /// Parses the publish profile XML to extract credentials and SCM URL
+            /// </summary>
+            private PublishingCredentials? ParsePublishProfileCredentials(string xmlContent)
             {
-                _logger.LogWarning("Subscription ID or Resource Group not configured");
-                return null;
+                try
+                {
+                    var doc = XDocument.Parse(xmlContent);
+
+                    // Look for the MSDeploy publish profile which contains SCM credentials
+                    var msDeployProfile = doc.Descendants("publishProfile")
+                        .FirstOrDefault(p => p.Attribute("publishMethod")?.Value == "MSDeploy");
+
+                    if (msDeployProfile == null)
+                    {
+                        // Fallback to any profile with userName and userPWD
+                        msDeployProfile = doc.Descendants("publishProfile")
+                            .FirstOrDefault(p => p.Attribute("userName") != null && p.Attribute("userPWD") != null);
+                    }
+
+                    if (msDeployProfile == null)
+                    {
+                        _logger.LogWarning("No valid publish profile found in XML");
+                        return null;
+                    }
+
+                    var userName = msDeployProfile.Attribute("userName")?.Value;
+                    var password = msDeployProfile.Attribute("userPWD")?.Value;
+                    var publishUrl = msDeployProfile.Attribute("publishUrl")?.Value;
+
+                    if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password))
+                    {
+                        _logger.LogWarning("Username or password not found in publish profile");
+                        return null;
+                    }
+
+                    // Extract SCM URL from publishUrl (remove :443 port if present)
+                    string? scmUrl = null;
+                    if (!string.IsNullOrEmpty(publishUrl))
+                    {
+                        // publishUrl is like: testsite-xxx.scm.amberwang2.eastus2-01.antares-test.windows-int.net:443
+                        // We need: https://testsite-xxx.scm.amberwang2.eastus2-01.antares-test.windows-int.net
+                        var cleanUrl = publishUrl.Split(':')[0]; // Remove port
+                        scmUrl = $"https://{cleanUrl}";
+                        _logger.LogInformation("Extracted SCM URL from publishUrl: {ScmUrl}", scmUrl);
+                    }
+
+                    _logger.LogInformation("Parsed credentials - User: {UserName}, Password length: {PasswordLength}, ScmUrl: {ScmUrl}", 
+                        userName, password.Length, scmUrl ?? "N/A");
+            
+                    return new PublishingCredentials
+                    {
+                        UserName = userName,
+                        Password = password,
+                        ScmUrl = scmUrl
+                    };
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to parse publish profile XML");
+                    return null;
+                }
             }
 
-            var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}/publishxml");
-            _logger.LogInformation("Fetching publish profile from: {Endpoint}", endpoint);
-
-            var response = await _httpClient.PostAsync(endpoint, null);
-
-            if (!response.IsSuccessStatusCode)
+            /// <summary>
+            /// Creates an HttpClient with Basic Auth configured for SCM site access
+            /// </summary>
+            private HttpClient CreateScmClient(string userName, string password)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Failed to fetch publish profile. Status: {StatusCode}, Response: {Response}",
-                    response.StatusCode, errorContent);
-                return null;
+                var client = new HttpClient();
+                // Use UTF8 encoding to handle special characters in passwords
+                var credentialString = $"{userName}:{password}";
+                var credentialBytes = Encoding.UTF8.GetBytes(credentialString);
+                var base64Credentials = Convert.ToBase64String(credentialBytes);
+        
+                _logger.LogInformation("Creating SCM client - Credential string: '{CredString}' -> Base64: {Base64}", 
+                    credentialString, base64Credentials);
+        
+                client.DefaultRequestHeaders.Authorization = 
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", base64Credentials);
+                return client;
             }
 
-            var xmlContent = await response.Content.ReadAsStringAsync();
-            return ParsePublishProfileCredentials(xmlContent);
+            #endregion
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to fetch publishing credentials for {WebAppName}", webAppName);
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Parses the publish profile XML to extract the MSDeploy username and password
-    /// </summary>
-    private (string userName, string password)? ParsePublishProfileCredentials(string xmlContent)
-    {
-        try
-        {
-            var doc = XDocument.Parse(xmlContent);
-
-            // Look for the MSDeploy publish profile which contains SCM credentials
-            var msDeployProfile = doc.Descendants("publishProfile")
-                .FirstOrDefault(p => p.Attribute("publishMethod")?.Value == "MSDeploy");
-
-            if (msDeployProfile == null)
-            {
-                // Fallback to any profile with userName and userPWD
-                msDeployProfile = doc.Descendants("publishProfile")
-                    .FirstOrDefault(p => p.Attribute("userName") != null && p.Attribute("userPWD") != null);
-            }
-
-            if (msDeployProfile == null)
-            {
-                _logger.LogWarning("No valid publish profile found in XML");
-                return null;
-            }
-
-            var userName = msDeployProfile.Attribute("userName")?.Value;
-            var password = msDeployProfile.Attribute("userPWD")?.Value;
-
-            if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password))
-            {
-                _logger.LogWarning("Username or password not found in publish profile");
-                return null;
-            }
-
-            _logger.LogInformation("Successfully parsed publishing credentials for user {UserName}", userName);
-            return (userName, password);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to parse publish profile XML");
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Creates an HttpClient with Basic Auth configured for SCM site access
-    /// </summary>
-    private HttpClient CreateScmClient(string userName, string password)
-    {
-        var client = new HttpClient();
-        var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{userName}:{password}"));
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
-        return client;
-    }
-
-    #endregion
-}
