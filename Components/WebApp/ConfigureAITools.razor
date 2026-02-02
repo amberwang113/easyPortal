@@ -552,6 +552,22 @@
                             saveMessageClass = "alert alert-warning";
                             detailedError += (string.IsNullOrEmpty(detailedError) ? "" : "\n\n") + FormatExtensionError("EasyAgent Install", agentResult);
                         }
+                        
+                        // Assign User Assigned Managed Identity to the web app
+                        var identityResourceId = EasyAgentConfig.Value.UserAssignedIdentityResourceId;
+                        if (!string.IsNullOrEmpty(identityResourceId))
+                        {
+                            saveMessage = "Assigning managed identity...";
+                            StateHasChanged();
+                            
+                            var identityResult = await ApiService.AssignUserIdentityAsync(WebApp.Name, identityResourceId);
+                            if (!identityResult.Success)
+                            {
+                                saveMessage = "Warning: Failed to assign managed identity.";
+                                saveMessageClass = "alert alert-warning";
+                                detailedError += (string.IsNullOrEmpty(detailedError) ? "" : "\n\n") + FormatIdentityError("Identity Assignment", identityResult);
+                            }
+                        }
                     }
                     else
                     {
@@ -705,6 +721,20 @@
             sb.AppendLine(result.RawCredentials);
             sb.AppendLine($"--- END CREDENTIALS ---");
         }
+        if (!string.IsNullOrEmpty(result.ResponseBody))
+        {
+            sb.AppendLine($"Response Body: {result.ResponseBody}");
+        }
+        return sb.ToString();
+    }
+    
+    private string FormatIdentityError(string operation, ApiService.IdentityAssignmentResult result)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Operation: {operation}");
+        sb.AppendLine($"URL: {result.RequestUrl ?? "N/A"}");
+        sb.AppendLine($"Status Code: {result.StatusCode?.ToString() ?? "N/A"}");
+        sb.AppendLine($"Error: {result.ErrorMessage ?? "Unknown error"}");
         if (!string.IsNullOrEmpty(result.ResponseBody))
         {
             sb.AppendLine($"Response Body: {result.ResponseBody}");

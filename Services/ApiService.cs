@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Net;
 using System.Text;
 using System.Xml.Linq;
 using DevPortal.Models;
@@ -584,7 +585,243 @@ public class ApiService
 
     #endregion
 
+    #region Identity Management
+
+    /// <summary>
+    /// Result object for identity assignment operations
+    /// </summary>
+    public class IdentityAssignmentResult
+    {
+        public bool Success { get; set; }
+        public int? StatusCode { get; set; }
+        public string? ErrorMessage { get; set; }
+        public string? RequestUrl { get; set; }
+        public string? ResponseBody { get; set; }
+    }
+
+    /// <summary>
+    /// Assigns a User Assigned Managed Identity to a web app via ARM PATCH
+    /// PATCH /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Web/sites/{name}?api-version=...
+    /// </summary>
+    public async Task<IdentityAssignmentResult> AssignUserIdentityAsync(string webAppName, string userAssignedIdentityResourceId)
+    {
+        var result = new IdentityAssignmentResult();
+
+        try
+        {
+            var subscriptionId = _settings.SubscriptionId;
+            var resourceGroup = _settings.ResourceGroup;
+
+            if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+            {
+                result.ErrorMessage = "Subscription ID or Resource Group not configured";
+                _logger.LogWarning("Subscription ID or Resource Group not configured");
+                return result;
+            }
+
+            if (string.IsNullOrEmpty(userAssignedIdentityResourceId))
+            {
+                result.ErrorMessage = "User Assigned Identity Resource ID is not configured";
+                _logger.LogWarning("User Assigned Identity Resource ID is not configured");
+                return result;
+            }
+
+            var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}");
+
+            result.RequestUrl = _httpClient.BaseAddress != null
+                ? new Uri(_httpClient.BaseAddress, endpoint).ToString()
+                : endpoint;
+
+            // Build the PATCH body for assigning user assigned identity
+            var requestBody = new
+            {
+                identity = new
+                {
+                    type = "UserAssigned",
+                    userAssignedIdentities = new Dictionary<string, object>
+                    {
+                        { userAssignedIdentityResourceId, new { } }
+                    }
+                }
+            };
+
+            _logger.LogInformation("Assigning User Assigned Identity to {WebAppName}: {IdentityId}", webAppName, userAssignedIdentityResourceId);
+
+            // Use PATCH method
+            var request = new HttpRequestMessage(HttpMethod.Patch, endpoint)
+            {
+                Content = JsonContent.Create(requestBody)
+            };
+
+            using var response = await _httpClient.SendAsync(request);
+            result.StatusCode = (int)response.StatusCode;
+            result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                result.ErrorMessage = $"ARM returned {response.StatusCode}";
+                _logger.LogError("Failed to assign identity to {WebAppName}. Status: {StatusCode}, Response: {Response}",
+                    webAppName, response.StatusCode, result.ResponseBody);
+                return result;
+            }
+
+            result.Success = true;
+            _logger.LogInformation("Successfully assigned User Assigned Identity to {WebAppName}", webAppName);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            result.ErrorMessage = $"Exception: {ex.Message}";
+            _logger.LogError(ex, "Exception assigning identity to {WebAppName}", webAppName);
+            return result;
+        }
+    }
+
+    #endregion
+
     #region Site Extensions
+
+        private const string SiteExtensionsApiVersion = "2025-03-01";
+
+        private string WithApiVersion(string endpoint, string apiVersion)
+        {
+            var separator = endpoint.Contains('?') ? '&' : '?';
+            return $"{endpoint}{separator}api-version={apiVersion}";
+        }
+
+        private string SiteExtensionArmEndpoint(string webAppName, string siteExtensionId)
+        {
+            var subscriptionId = _settings.SubscriptionId;
+            var resourceGroup = _settings.ResourceGroup;
+
+            return $"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}/siteextensions/{siteExtensionId}";
+        }
+
+        private bool HasArmSiteExtensionSettings(out string subscriptionId, out string resourceGroup)
+        {
+            subscriptionId = _settings.SubscriptionId;
+            resourceGroup = _settings.ResourceGroup;
+
+            if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+            {
+                _logger.LogWarning("Subscription ID or Resource Group not configured");
+                return false;
+            }
+
+            return true;
+        }
+
+        private async Task<SiteExtensionResult> PutArmSiteExtensionAsync(string webAppName, string siteExtensionId)
+        {
+            var result = new SiteExtensionResult { Method = "PUT (ARM siteextensions API)" };
+
+            try
+            {
+                if (!HasArmSiteExtensionSettings(out _, out _))
+                {
+                    result.ErrorMessage = "Subscription ID or Resource Group not configured";
+                    return result;
+                }
+
+                var endpoint = SiteExtensionArmEndpoint(webAppName, siteExtensionId);
+                endpoint = WithApiVersion(endpoint, SiteExtensionsApiVersion);
+
+                result.RequestUrl = _httpClient.BaseAddress != null
+                    ? new Uri(_httpClient.BaseAddress, endpoint).ToString()
+                    : endpoint;
+
+                _logger.LogInformation("Installing site extension {SiteExtensionId} for {WebAppName} via ARM: {Endpoint}", siteExtensionId, webAppName, endpoint);
+
+                // ARM expects a JSON body for PUT; an empty object works for this resource.
+                using var response = await _httpClient.PutAsJsonAsync(endpoint, new { });
+                result.StatusCode = (int)response.StatusCode;
+                result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    result.ErrorMessage = $"ARM returned {response.StatusCode}";
+                    _logger.LogError("Failed to install site extension {SiteExtensionId}. Status: {StatusCode}, Response: {Response}",
+                        siteExtensionId, response.StatusCode, result.ResponseBody);
+                    return result;
+                }
+
+                result.Success = true;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = $"Exception: {ex.Message}";
+                _logger.LogError(ex, "Exception installing site extension {SiteExtensionId} for {WebAppName}", siteExtensionId, webAppName);
+                return result;
+            }
+        }
+
+        private async Task<SiteExtensionResult> DeleteArmSiteExtensionAsync(string webAppName, string siteExtensionId)
+        {
+            var result = new SiteExtensionResult { Method = "DELETE (ARM siteextensions API)" };
+
+            try
+            {
+                if (!HasArmSiteExtensionSettings(out _, out _))
+                {
+                    result.ErrorMessage = "Subscription ID or Resource Group not configured";
+                    return result;
+                }
+
+                var endpoint = SiteExtensionArmEndpoint(webAppName, siteExtensionId);
+                endpoint = WithApiVersion(endpoint, SiteExtensionsApiVersion);
+
+                result.RequestUrl = _httpClient.BaseAddress != null
+                    ? new Uri(_httpClient.BaseAddress, endpoint).ToString()
+                    : endpoint;
+
+                _logger.LogInformation("Uninstalling site extension {SiteExtensionId} for {WebAppName} via ARM: {Endpoint}", siteExtensionId, webAppName, endpoint);
+
+                using var response = await _httpClient.DeleteAsync(endpoint);
+                result.StatusCode = (int)response.StatusCode;
+                result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+                // 404 is OK for uninstall - means it's already not there
+                if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
+                {
+                    result.ErrorMessage = $"ARM returned {response.StatusCode}";
+                    _logger.LogError("Failed to uninstall site extension {SiteExtensionId}. Status: {StatusCode}, Response: {Response}",
+                        siteExtensionId, response.StatusCode, result.ResponseBody);
+                    return result;
+                }
+
+                result.Success = true;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = $"Exception: {ex.Message}";
+                _logger.LogError(ex, "Exception uninstalling site extension {SiteExtensionId} for {WebAppName}", siteExtensionId, webAppName);
+                return result;
+            }
+        }
+
+        private async Task<bool> IsArmSiteExtensionInstalledAsync(string webAppName, string siteExtensionId)
+        {
+            try
+            {
+                if (!HasArmSiteExtensionSettings(out _, out _))
+                {
+                    return false;
+                }
+
+                var endpoint = SiteExtensionArmEndpoint(webAppName, siteExtensionId);
+                endpoint = WithApiVersion(endpoint, SiteExtensionsApiVersion);
+
+                using var response = await _httpClient.GetAsync(endpoint);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to check site extension {SiteExtensionId} status for {WebAppName}", siteExtensionId, webAppName);
+                return false;
+            }
+        }
 
         /// <summary>
         /// Result object for site extension operations with detailed error info
@@ -602,69 +839,12 @@ public class ApiService
         }
 
         /// <summary>
-        /// Installs the EasyAgent site extension on a web app via the Kudu SCM API
-        /// PUT https://{scm-url}/api/siteextensions/EasyAgent
+        /// Installs the EasyAgent site extension on a web app via ARM
+        /// PUT /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Web/sites/{name}/siteextensions/EasyAgent?api-version=2025-03-01
         /// </summary>
         public async Task<SiteExtensionResult> InstallEasyAgentExtensionAsync(string webAppName)
         {
-            var result = new SiteExtensionResult();
-            result.Method = "PUT (SCM/Kudu API)";
-        
-            try
-            {
-                // Get publishing credentials for SCM authentication
-                var credentials = await GetPublishingCredentialsAsync(webAppName);
-                if (credentials == null)
-                {
-                    result.ErrorMessage = "Failed to get publishing credentials - check ARM API access";
-                    _logger.LogError("Failed to get publishing credentials for {WebAppName}", webAppName);
-                    return result;
-                }
-
-                var userName = credentials.UserName;
-                var password = credentials.Password;
-                var scmBaseUrl = credentials.ScmUrl;
-            
-                if (string.IsNullOrEmpty(scmBaseUrl))
-                {
-                    result.ErrorMessage = "Could not determine SCM URL from publish profile or site properties";
-                    return result;
-                }
-            
-                // Show full credentials for debugging (will be visible in UI)
-                result.RawCredentials = $"Username: {userName}\nPassword: {password}\nSCM Base URL: {scmBaseUrl}";
-                result.CredentialsUsed = $"User: {userName} | Pass: {password.Substring(0, Math.Min(10, password.Length))}... (len={password.Length})";
-
-                // Build the SCM URL for the extension
-                var scmUrl = $"{scmBaseUrl}/api/siteextensions/EasyAgent";
-                result.RequestUrl = scmUrl;
-            
-                _logger.LogInformation("Installing EasyAgent via SCM: {ScmUrl} with user {User}", scmUrl, userName);
-
-                using var scmClient = CreateScmClient(userName, password);
-                var response = await scmClient.PutAsync(scmUrl, null);
-            
-                result.StatusCode = (int)response.StatusCode;
-                result.ResponseBody = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    result.ErrorMessage = $"SCM returned {response.StatusCode}";
-                    _logger.LogError("Failed to install EasyAgent. URL: {Url}, Status: {StatusCode}, Response: {Response}",
-                        scmUrl, response.StatusCode, result.ResponseBody);
-                    return result;
-                }
-
-                result.Success = true;
-                _logger.LogInformation("Successfully installed EasyAgent for {WebAppName}", webAppName);
-                return result;
-            }
-            catch (Exception ex)
-            {
-                result.ErrorMessage = $"Exception: {ex.Message}";
-                _logger.LogError(ex, "Exception installing EasyAgent for {WebAppName}", webAppName);
-                return result;
-            }
+            return await PutArmSiteExtensionAsync(webAppName, "EasyAgent");
         }
 
         /// <summary>
@@ -672,22 +852,7 @@ public class ApiService
         /// </summary>
         public async Task<bool> IsEasyAgentExtensionInstalledAsync(string webAppName)
         {
-            try
-            {
-                var credentials = await GetPublishingCredentialsAsync(webAppName);
-                if (credentials == null || string.IsNullOrEmpty(credentials.ScmUrl)) return false;
-
-                var scmUrl = $"{credentials.ScmUrl}/api/siteextensions/EasyAgent";
-                using var scmClient = CreateScmClient(credentials.UserName, credentials.Password);
-                var response = await scmClient.GetAsync(scmUrl);
-
-                return response.IsSuccessStatusCode;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to check EasyAgent extension status for {WebAppName}", webAppName);
-                return false;
-            }
+            return await IsArmSiteExtensionInstalledAsync(webAppName, "EasyAgent");
         }
 
         /// <summary>
@@ -695,56 +860,7 @@ public class ApiService
         /// </summary>
         public async Task<SiteExtensionResult> UninstallEasyAgentExtensionAsync(string webAppName)
         {
-            var result = new SiteExtensionResult();
-            result.Method = "DELETE (SCM/Kudu API)";
-        
-            try
-            {
-                var credentials = await GetPublishingCredentialsAsync(webAppName);
-                if (credentials == null)
-                {
-                    result.ErrorMessage = "Failed to get publishing credentials";
-                    return result;
-                }
-
-                var userName = credentials.UserName;
-                var password = credentials.Password;
-                var scmBaseUrl = credentials.ScmUrl;
-            
-                if (string.IsNullOrEmpty(scmBaseUrl))
-                {
-                    result.ErrorMessage = "Could not determine SCM URL";
-                    return result;
-                }
-            
-                result.CredentialsUsed = $"User: {userName} | Pass: {password.Substring(0, Math.Min(10, password.Length))}...";
-
-                var scmUrl = $"{scmBaseUrl}/api/siteextensions/EasyAgent";
-                result.RequestUrl = scmUrl;
-            
-                _logger.LogInformation("Uninstalling EasyAgent via SCM: {ScmUrl}", scmUrl);
-
-                using var scmClient = CreateScmClient(userName, password);
-                var response = await scmClient.DeleteAsync(scmUrl);
-            
-                result.StatusCode = (int)response.StatusCode;
-                result.ResponseBody = await response.Content.ReadAsStringAsync();
-
-                // 404 is OK for uninstall - means it's already not there
-                if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NotFound)
-                {
-                    result.ErrorMessage = $"SCM returned {response.StatusCode}";
-                    return result;
-                }
-
-                result.Success = true;
-                return result;
-            }
-            catch (Exception ex)
-            {
-                result.ErrorMessage = $"Exception: {ex.Message}";
-                return result;
-            }
+            return await DeleteArmSiteExtensionAsync(webAppName, "EasyAgent");
         }
 
         /// <summary>
@@ -753,62 +869,7 @@ public class ApiService
         /// </summary>
         public async Task<SiteExtensionResult> InstallEasyMcpExtensionAsync(string webAppName)
         {
-            var result = new SiteExtensionResult();
-            result.Method = "PUT (SCM/Kudu API)";
-        
-            try
-            {
-                var credentials = await GetPublishingCredentialsAsync(webAppName);
-                if (credentials == null)
-                {
-                    result.ErrorMessage = "Failed to get publishing credentials - check ARM API access";
-                    _logger.LogError("Failed to get publishing credentials for {WebAppName}", webAppName);
-                    return result;
-                }
-
-                var userName = credentials.UserName;
-                var password = credentials.Password;
-                var scmBaseUrl = credentials.ScmUrl;
-            
-                if (string.IsNullOrEmpty(scmBaseUrl))
-                {
-                    result.ErrorMessage = "Could not determine SCM URL from publish profile or site properties";
-                    return result;
-                }
-            
-                // Show full credentials for debugging (will be visible in UI)
-                result.RawCredentials = $"Username: {userName}\nPassword: {password}\nSCM Base URL: {scmBaseUrl}";
-                result.CredentialsUsed = $"User: {userName} | Pass: {password.Substring(0, Math.Min(10, password.Length))}... (len={password.Length})";
-
-                var scmUrl = $"{scmBaseUrl}/api/siteextensions/EasyMCP";
-                result.RequestUrl = scmUrl;
-            
-                _logger.LogInformation("Installing EasyMCP via SCM: {ScmUrl} with user {User}", scmUrl, userName);
-
-                using var scmClient = CreateScmClient(userName, password);
-                var response = await scmClient.PutAsync(scmUrl, null);
-            
-                result.StatusCode = (int)response.StatusCode;
-                result.ResponseBody = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    result.ErrorMessage = $"SCM returned {response.StatusCode}";
-                    _logger.LogError("Failed to install EasyMCP. URL: {Url}, Status: {StatusCode}, Response: {Response}",
-                        scmUrl, response.StatusCode, result.ResponseBody);
-                    return result;
-                }
-
-                result.Success = true;
-                _logger.LogInformation("Successfully installed EasyMCP for {WebAppName}", webAppName);
-                return result;
-            }
-            catch (Exception ex)
-            {
-                result.ErrorMessage = $"Exception: {ex.Message}";
-                _logger.LogError(ex, "Exception installing EasyMCP for {WebAppName}", webAppName);
-                return result;
-            }
+            return await PutArmSiteExtensionAsync(webAppName, "EasyMCP");
         }
 
         /// <summary>
@@ -816,22 +877,7 @@ public class ApiService
         /// </summary>
         public async Task<bool> IsEasyMcpExtensionInstalledAsync(string webAppName)
         {
-            try
-            {
-                var credentials = await GetPublishingCredentialsAsync(webAppName);
-                if (credentials == null || string.IsNullOrEmpty(credentials.ScmUrl)) return false;
-
-                var scmUrl = $"{credentials.ScmUrl}/api/siteextensions/EasyMCP";
-                using var scmClient = CreateScmClient(credentials.UserName, credentials.Password);
-                var response = await scmClient.GetAsync(scmUrl);
-
-                return response.IsSuccessStatusCode;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to check EasyMCP extension status for {WebAppName}", webAppName);
-                return false;
-            }
+            return await IsArmSiteExtensionInstalledAsync(webAppName, "EasyMCP");
         }
 
         /// <summary>
@@ -839,56 +885,31 @@ public class ApiService
         /// </summary>
         public async Task<SiteExtensionResult> UninstallEasyMcpExtensionAsync(string webAppName)
         {
-            var result = new SiteExtensionResult();
-            result.Method = "DELETE (SCM/Kudu API)";
-        
-            try
-            {
-                var credentials = await GetPublishingCredentialsAsync(webAppName);
-                if (credentials == null)
-                {
-                    result.ErrorMessage = "Failed to get publishing credentials";
-                    return result;
-                }
+            return await DeleteArmSiteExtensionAsync(webAppName, "EasyMCP");
+        }
 
-                var userName = credentials.UserName;
-                var password = credentials.Password;
-                var scmBaseUrl = credentials.ScmUrl;
-            
-                if (string.IsNullOrEmpty(scmBaseUrl))
-                {
-                    result.ErrorMessage = "Could not determine SCM URL";
-                    return result;
-                }
-            
-                result.CredentialsUsed = $"User: {userName} | Pass: {password.Substring(0, Math.Min(10, password.Length))}...";
+        /// <summary>
+        /// Installs the EasyAuth site extension on a web app via ARM
+        /// </summary>
+        public async Task<SiteExtensionResult> InstallEasyAuthExtensionAsync(string webAppName)
+        {
+            return await PutArmSiteExtensionAsync(webAppName, "EasyAuth");
+        }
 
-                var scmUrl = $"{scmBaseUrl}/api/siteextensions/EasyMCP";
-                result.RequestUrl = scmUrl;
-            
-                _logger.LogInformation("Uninstalling EasyMCP via SCM: {ScmUrl}", scmUrl);
+        /// <summary>
+        /// Checks if the EasyAuth site extension is installed on a web app via ARM
+        /// </summary>
+        public async Task<bool> IsEasyAuthExtensionInstalledAsync(string webAppName)
+        {
+            return await IsArmSiteExtensionInstalledAsync(webAppName, "EasyAuth");
+        }
 
-                using var scmClient = CreateScmClient(userName, password);
-                var response = await scmClient.DeleteAsync(scmUrl);
-            
-                result.StatusCode = (int)response.StatusCode;
-                result.ResponseBody = await response.Content.ReadAsStringAsync();
-
-                // 404 is OK for uninstall - means it's already not there
-                if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NotFound)
-                {
-                    result.ErrorMessage = $"SCM returned {response.StatusCode}";
-                    return result;
-                }
-
-                result.Success = true;
-                return result;
-            }
-            catch (Exception ex)
-            {
-                result.ErrorMessage = $"Exception: {ex.Message}";
-                return result;
-            }
+        /// <summary>
+        /// Uninstalls the EasyAuth site extension on a web app via ARM
+        /// </summary>
+        public async Task<SiteExtensionResult> UninstallEasyAuthExtensionAsync(string webAppName)
+        {
+            return await DeleteArmSiteExtensionAsync(webAppName, "EasyAuth");
         }
 
         #endregion

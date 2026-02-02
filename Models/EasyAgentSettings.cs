@@ -13,4 +13,10 @@ public class EasyAgentSettings
     public string WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT { get; set; } = string.Empty;
     public string WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME { get; set; } = "RAGDatabase";
     public string WEBSITE_MANAGED_CLIENT_ID { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// The full ARM resource ID of the User Assigned Managed Identity to assign to web apps.
+    /// Example: /subscriptions/{subId}/resourcegroups/{rg}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{name}
+    /// </summary>
+    public string UserAssignedIdentityResourceId { get; set; } = string.Empty;
 }

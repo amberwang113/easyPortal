@@ -14,34 +14,64 @@ builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("Api"))
 // Configure EasyAgent default settings
 builder.Services.Configure<EasyAgentSettings>(builder.Configuration.GetSection("EasyAgent"));
 
-// Configure HttpClient for ApiService
-builder.Services.AddHttpClient<ApiService>((serviceProvider, client) =>
+// Register the ARM auth handler for DI
+builder.Services.AddTransient<AzureArmAuthHandler>();
+
+// Configure HttpClient for ApiService based on AuthType
+var authType = builder.Configuration["Api:AuthType"] ?? "ARM";
+
+if (authType.Equals("ARM", StringComparison.OrdinalIgnoreCase))
 {
-    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    var baseUrl = configuration["Api:BaseUrl"];
-    
-    if (!string.IsNullOrEmpty(baseUrl))
+    // ARM mode: Use DefaultAzureCredential with Azure Resource Manager
+    builder.Services.AddHttpClient<ApiService>((serviceProvider, client) =>
     {
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var baseUrl = configuration["Api:ARM:BaseUrl"];
+        
+        // Default to Azure Resource Manager if no BaseUrl specified
+        if (string.IsNullOrEmpty(baseUrl))
+        {
+            baseUrl = "https://management.azure.com";
+        }
+        
         client.BaseAddress = new Uri(baseUrl);
-    }
-    
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-})
-.ConfigurePrimaryHttpMessageHandler(serviceProvider =>
+        client.DefaultRequestHeaders.Add("Accept", "application/json");
+        
+        var logger = serviceProvider.GetRequiredService<ILogger<ApiService>>();
+        logger.LogInformation("ApiService configured for ARM mode with base URL: {BaseUrl}", baseUrl);
+    })
+    .AddHttpMessageHandler<AzureArmAuthHandler>();
+}
+else if (authType.Equals("Private", StringComparison.OrdinalIgnoreCase))
 {
-    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-    var logger = loggerFactory.CreateLogger("HttpClientCertificateHandler");
-    var authType = configuration["Api:AuthType"] ?? "None";
-    
-    var handler = new HttpClientHandler();
-    
-    // Configure certificate authentication if specified
-    if (authType.Equals("Certificate", StringComparison.OrdinalIgnoreCase))
+    // Private mode: Use certificate authentication against private geomaster
+    builder.Services.AddHttpClient<ApiService>((serviceProvider, client) =>
     {
-        var thumbprint = configuration["Api:Certificate:Thumbprint"];
-        var storeName = configuration["Api:Certificate:StoreName"] ?? "My";
-        var storeLocation = configuration["Api:Certificate:StoreLocation"] ?? "CurrentUser";
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var baseUrl = configuration["Api:Private:BaseUrl"];
+        
+        if (!string.IsNullOrEmpty(baseUrl))
+        {
+            client.BaseAddress = new Uri(baseUrl);
+        }
+        
+        client.DefaultRequestHeaders.Add("Accept", "application/json");
+        
+        var logger = serviceProvider.GetRequiredService<ILogger<ApiService>>();
+        logger.LogInformation("ApiService configured for Private mode with base URL: {BaseUrl}", baseUrl);
+    })
+    .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
+    {
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+        var logger = loggerFactory.CreateLogger("HttpClientCertificateHandler");
+        
+        var handler = new HttpClientHandler();
+        
+        // Configure certificate authentication
+        var thumbprint = configuration["Api:Private:Certificate:Thumbprint"];
+        var storeName = configuration["Api:Private:Certificate:StoreName"] ?? "My";
+        var storeLocation = configuration["Api:Private:Certificate:StoreLocation"] ?? "CurrentUser";
         
         logger.LogInformation("Certificate auth configured. Thumbprint: {Thumbprint}, Store: {StoreName}/{StoreLocation}", 
             thumbprint, storeName, storeLocation);
@@ -92,25 +122,39 @@ builder.Services.AddHttpClient<ApiService>((serviceProvider, client) =>
         }
         else
         {
-            logger.LogWarning("Certificate thumbprint is not configured");
+            logger.LogWarning("Certificate thumbprint is not configured for Private mode");
         }
         
         // Ensure the client certificate is sent automatically during TLS handshake
         handler.ClientCertificateOptions = ClientCertificateOption.Manual;
-    }
-    
-    // For development, you might need to bypass SSL validation
-    // Remove this in production!
-    if (builder.Environment.IsDevelopment())
+        
+        // For development with private environments, bypass SSL validation
+        if (builder.Environment.IsDevelopment())
+        {
+            handler.ServerCertificateCustomValidationCallback = 
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        }
+        
+        return handler;
+    });
+}
+else
+{
+    // Fallback: No authentication
+    builder.Services.AddHttpClient<ApiService>((serviceProvider, client) =>
     {
-        handler.ServerCertificateCustomValidationCallback = 
-            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-    }
-    
-    return handler;
-});
+        client.DefaultRequestHeaders.Add("Accept", "application/json");
+        
+        var logger = serviceProvider.GetRequiredService<ILogger<ApiService>>();
+        logger.LogWarning("ApiService configured with no authentication (AuthType: {AuthType})", authType);
+    });
+}
 
 var app = builder.Build();
+
+// Log the configured auth mode at startup
+var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+startupLogger.LogInformation("DevPortal starting with AuthType: {AuthType}", authType);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
