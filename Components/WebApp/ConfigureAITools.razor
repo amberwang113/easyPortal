@@ -48,13 +48,13 @@
         
         <div class="form-group">
             <label class="form-label">MCP Endpoint Path</label>
-            <input type="text" class="form-input" @bind="mcpEndpointPath" placeholder="/.well-known/mcp" />
+            <input type="text" class="form-input" @bind="mcpEndpointPath" placeholder="/ai/mcp" />
             <div class="form-help">The path where AI assistants will discover your MCP server.</div>
         </div>
         
         <div class="form-group">
             <label class="form-label">Server Name</label>
-            <input type="text" class="form-input" @bind="mcpServerName" placeholder="@WebApp?.Name MCP Server" />
+            <input type="text" class="form-input" @bind="mcpServerName" placeholder="my-mcp-server" />
         </div>
         
         <div class="form-group">
@@ -248,6 +248,42 @@
     }
 }
 
+@* Show uninstall button when AI was previously configured but now all options are unchecked *@
+@if (!mcpServerEnabled && !endpointEnabled && !nlwebEnabled && wasAIConfigured)
+{
+    <div class="card" style="border-color: #d83b01;">
+        <div class="card-title" style="color: #d83b01;">Uninstall AI Integration</div>
+        <div class="form-help" style="margin-bottom: 20px;">
+            AI integration was previously configured on this web app. Click below to completely remove all AI components including app settings, site extensions, managed identity, and the EasyAgentScraper webjob.
+        </div>
+        
+        <div style="margin-top: 15px;">
+            <button class="btn" style="background-color: #d83b01; color: white;" @onclick="UninstallAIIntegration" disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <span class="loading-spinner" style="width: 14px; height: 14px; margin-right: 8px;"></span>
+                }
+                Uninstall AI Integration
+            </button>
+        </div>
+        
+        @if (!string.IsNullOrEmpty(saveMessage))
+        {
+            <div class="@saveMessageClass" style="margin-top: 15px;">
+                @saveMessage
+            </div>
+        }
+        
+        @if (!string.IsNullOrEmpty(detailedError))
+        {
+            <div class="alert alert-error" style="margin-top: 15px;">
+                <div style="font-weight: 600; margin-bottom: 8px;">Uninstall Error Details:</div>
+                <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">@detailedError</pre>
+            </div>
+        }
+    </div>
+}
+
 <style>
     .output-checkbox-group {
         display: flex;
@@ -301,6 +337,9 @@
     private bool endpointEnabled = false;
     private bool nlwebEnabled = false;
     
+    // Track if AI was previously configured (for showing uninstall option)
+    private bool wasAIConfigured = false;
+    
     // UI state
     private bool showAdvancedSettings = false;
     private bool showAddTool = false;
@@ -330,7 +369,7 @@
     private string openApiSpec = "";
     
     // MCP Server settings
-    private string mcpEndpointPath = "/.well-known/mcp";
+    private string mcpEndpointPath = "/ai/mcp";
     private string mcpServerName = "";
     private string mcpServerDescription = "";
     private string mcpOpenApiSpec = "";
@@ -349,7 +388,7 @@
         {
             if (string.IsNullOrEmpty(mcpServerName))
             {
-                mcpServerName = $"{WebApp.Name} MCP Server";
+                mcpServerName = $"{WebApp.Name}-server";
             }
             await LoadExistingSettings();
         }
@@ -389,10 +428,13 @@
             toolsEnabled = !string.IsNullOrEmpty(openApiSpec);
             
             // MCP settings
-            mcpEndpointPath = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_ENDPOINT_PATH")?.Value ?? "/.well-known/mcp";
-            mcpServerName = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_SERVER_NAME")?.Value ?? $"{WebApp.Name} MCP Server";
+            mcpEndpointPath = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_ENDPOINT_PATH")?.Value ?? "/ai/mcp";
+            mcpServerName = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_SERVER_NAME")?.Value ?? $"{WebApp.Name}-server";
             mcpServerDescription = envVars.FirstOrDefault(e => e.Name == "WEBSITE_MCP_SERVER_DESCRIPTION")?.Value ?? "";
             mcpOpenApiSpec = GetValueOrDefault(envVars, "WEBSITE_EASYMCP_OPENAPI_SPEC", defaults.WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC);
+            
+            // Check if AI was previously configured (any WEBSITE_EASYMCP_* or WEBSITE_EASYAGENT_* settings exist)
+            wasAIConfigured = envVars.Any(e => e.Name.StartsWith("WEBSITE_EASYMCP_") || e.Name.StartsWith("WEBSITE_EASYAGENT_"));
             
             StateHasChanged();
         }
@@ -740,6 +782,131 @@
             sb.AppendLine($"Response Body: {result.ResponseBody}");
         }
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Completely uninstalls AI integration from the web app:
+    /// 1. Deletes all app settings starting with WEBSITE_EASYMCP_* or WEBSITE_EASYAGENT_*
+    /// 2. Removes the associated user assigned managed identity
+    /// 3. Uninstalls both EasyAgent and EasyMCP site extensions
+    /// 4. Deletes the EasyAgentScraper webjob
+    /// </summary>
+    private async Task UninstallAIIntegration()
+    {
+        if (WebApp == null) return;
+        
+        isSaving = true;
+        saveMessage = string.Empty;
+        detailedError = string.Empty;
+        StateHasChanged();
+        
+        try
+        {
+            // Step 1: Remove all AI-related app settings
+            saveMessage = "Removing AI app settings...";
+            StateHasChanged();
+            
+            var existingVars = await ApiService.GetEnvironmentVariablesAsync(WebApp.Name);
+            var envVarDict = existingVars.ToDictionary(e => e.Name, e => e);
+            
+            // Find and remove all WEBSITE_EASYMCP_* and WEBSITE_EASYAGENT_* settings
+            var keysToRemove = envVarDict.Keys
+                .Where(k => k.StartsWith("WEBSITE_EASYMCP_") || k.StartsWith("WEBSITE_EASYAGENT_") || k == "WEBSITE_MANAGED_CLIENT_ID" || k == "WEBSITE_MCP_ENDPOINT_PATH" || k == "WEBSITE_MCP_SERVER_NAME" || k == "WEBSITE_MCP_SERVER_DESCRIPTION")
+                .ToList();
+            
+            foreach (var key in keysToRemove)
+            {
+                envVarDict.Remove(key);
+            }
+            
+            var allVars = envVarDict.Values.ToList();
+            var settingsSaved = await ApiService.SaveEnvironmentVariablesAsync(WebApp.Name, allVars);
+            
+            if (!settingsSaved)
+            {
+                detailedError += "Failed to remove app settings.\n";
+            }
+            
+            // Step 2: Remove the user assigned managed identity
+            var identityResourceId = EasyAgentConfig.Value.UserAssignedIdentityResourceId;
+            if (!string.IsNullOrEmpty(identityResourceId))
+            {
+                saveMessage = "Removing managed identity...";
+                StateHasChanged();
+                
+                var identityResult = await ApiService.RemoveUserIdentityAsync(WebApp.Name, identityResourceId);
+                if (!identityResult.Success)
+                {
+                    detailedError += FormatIdentityError("Identity Removal", identityResult) + "\n";
+                }
+            }
+            
+            // Step 3: Uninstall both site extensions
+            saveMessage = "Uninstalling EasyAgent extension...";
+            StateHasChanged();
+            
+            var agentResult = await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
+            if (!agentResult.Success)
+            {
+                detailedError += FormatExtensionError("EasyAgent Uninstall", agentResult) + "\n";
+            }
+            
+            saveMessage = "Uninstalling EasyMCP extension...";
+            StateHasChanged();
+            
+            var mcpResult = await ApiService.UninstallEasyMcpExtensionAsync(WebApp.Name);
+            if (!mcpResult.Success)
+            {
+                detailedError += FormatExtensionError("EasyMCP Uninstall", mcpResult) + "\n";
+            }
+            
+            // Step 4: Delete the EasyAgentScraper webjob (try both triggered and continuous)
+            saveMessage = "Deleting EasyAgentScraper webjob...";
+            StateHasChanged();
+            
+            var triggeredResult = await ApiService.DeleteTriggeredWebJobAsync(WebApp.Name, "EasyAgentScraper");
+            var continuousResult = await ApiService.DeleteContinuousWebJobAsync(WebApp.Name, "EasyAgentScraper");
+            
+            // Only report error if both failed (webjob might be either type)
+            if (!triggeredResult.Success && !continuousResult.Success)
+            {
+                // Check if it's just a 404 (webjob doesn't exist) - that's OK
+                if (triggeredResult.StatusCode != 404 && continuousResult.StatusCode != 404)
+                {
+                    detailedError += FormatExtensionError("WebJob Deletion", triggeredResult) + "\n";
+                }
+            }
+            
+            // Update state
+            wasAIConfigured = false;
+            mcpServerEnabled = false;
+            endpointEnabled = false;
+            nlwebEnabled = false;
+            
+            if (string.IsNullOrEmpty(detailedError))
+            {
+                saveMessage = "AI integration uninstalled successfully!";
+                saveMessageClass = "alert alert-success";
+            }
+            else
+            {
+                saveMessage = "AI integration uninstalled with some warnings. Check details below.";
+                saveMessageClass = "alert alert-warning";
+            }
+            
+            await OnSave.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error uninstalling AI integration: {ex.Message}");
+            saveMessage = $"Error uninstalling AI integration: {ex.Message}";
+            saveMessageClass = "alert alert-error";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
     }
 
     public class MCPTool

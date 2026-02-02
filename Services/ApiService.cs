@@ -677,6 +677,188 @@ public class ApiService
         }
     }
 
+    /// <summary>
+    /// Removes the User Assigned Managed Identity from a web app via ARM PATCH
+    /// PATCH /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Web/sites/{name}?api-version=...
+    /// </summary>
+    public async Task<IdentityAssignmentResult> RemoveUserIdentityAsync(string webAppName, string userAssignedIdentityResourceId)
+    {
+        var result = new IdentityAssignmentResult();
+
+        try
+        {
+            var subscriptionId = _settings.SubscriptionId;
+            var resourceGroup = _settings.ResourceGroup;
+
+            if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+            {
+                result.ErrorMessage = "Subscription ID or Resource Group not configured";
+                _logger.LogWarning("Subscription ID or Resource Group not configured");
+                return result;
+            }
+
+            if (string.IsNullOrEmpty(userAssignedIdentityResourceId))
+            {
+                // If no identity configured, consider it a success (nothing to remove)
+                result.Success = true;
+                return result;
+            }
+
+            var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}");
+
+            result.RequestUrl = _httpClient.BaseAddress != null
+                ? new Uri(_httpClient.BaseAddress, endpoint).ToString()
+                : endpoint;
+
+            // Build the PATCH body for removing user assigned identity (set to None)
+            var requestBody = new
+            {
+                identity = new
+                {
+                    type = "None"
+                }
+            };
+
+            _logger.LogInformation("Removing User Assigned Identity from {WebAppName}: {IdentityId}", webAppName, userAssignedIdentityResourceId);
+
+            // Use PATCH method
+            var request = new HttpRequestMessage(HttpMethod.Patch, endpoint)
+            {
+                Content = JsonContent.Create(requestBody)
+            };
+
+            using var response = await _httpClient.SendAsync(request);
+            result.StatusCode = (int)response.StatusCode;
+            result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                result.ErrorMessage = $"ARM returned {response.StatusCode}";
+                _logger.LogError("Failed to remove identity from {WebAppName}. Status: {StatusCode}, Response: {Response}",
+                    webAppName, response.StatusCode, result.ResponseBody);
+                return result;
+            }
+
+            result.Success = true;
+            _logger.LogInformation("Successfully removed User Assigned Identity from {WebAppName}", webAppName);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            result.ErrorMessage = $"Exception: {ex.Message}";
+            _logger.LogError(ex, "Exception removing identity from {WebAppName}", webAppName);
+            return result;
+        }
+    }
+
+    #endregion
+
+    #region WebJobs
+
+    /// <summary>
+    /// Deletes a triggered webjob from a web app via ARM
+    /// DELETE /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Web/sites/{name}/triggeredwebjobs/{webjobName}
+    /// </summary>
+    public async Task<SiteExtensionResult> DeleteTriggeredWebJobAsync(string webAppName, string webjobName)
+    {
+        var result = new SiteExtensionResult { Method = "DELETE (ARM triggeredwebjobs API)" };
+
+        try
+        {
+            var subscriptionId = _settings.SubscriptionId;
+            var resourceGroup = _settings.ResourceGroup;
+
+            if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+            {
+                result.ErrorMessage = "Subscription ID or Resource Group not configured";
+                _logger.LogWarning("Subscription ID or Resource Group not configured");
+                return result;
+            }
+
+            var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}/triggeredwebjobs/{webjobName}");
+
+            result.RequestUrl = _httpClient.BaseAddress != null
+                ? new Uri(_httpClient.BaseAddress, endpoint).ToString()
+                : endpoint;
+
+            _logger.LogInformation("Deleting triggered webjob {WebJobName} for {WebAppName} via ARM: {Endpoint}", webjobName, webAppName, endpoint);
+
+            using var response = await _httpClient.DeleteAsync(endpoint);
+            result.StatusCode = (int)response.StatusCode;
+            result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+            // 404 is OK for delete - means it's already not there
+            if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
+            {
+                result.ErrorMessage = $"ARM returned {response.StatusCode}";
+                _logger.LogError("Failed to delete triggered webjob {WebJobName}. Status: {StatusCode}, Response: {Response}",
+                    webjobName, response.StatusCode, result.ResponseBody);
+                return result;
+            }
+
+            result.Success = true;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            result.ErrorMessage = $"Exception: {ex.Message}";
+            _logger.LogError(ex, "Exception deleting triggered webjob {WebJobName} for {WebAppName}", webjobName, webAppName);
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Deletes a continuous webjob from a web app via ARM
+    /// DELETE /subscriptions/{subId}/resourceGroups/{rg}/providers/Microsoft.Web/sites/{name}/continuouswebjobs/{webjobName}
+    /// </summary>
+    public async Task<SiteExtensionResult> DeleteContinuousWebJobAsync(string webAppName, string webjobName)
+    {
+        var result = new SiteExtensionResult { Method = "DELETE (ARM continuouswebjobs API)" };
+
+        try
+        {
+            var subscriptionId = _settings.SubscriptionId;
+            var resourceGroup = _settings.ResourceGroup;
+
+            if (string.IsNullOrEmpty(subscriptionId) || string.IsNullOrEmpty(resourceGroup))
+            {
+                result.ErrorMessage = "Subscription ID or Resource Group not configured";
+                _logger.LogWarning("Subscription ID or Resource Group not configured");
+                return result;
+            }
+
+            var endpoint = WithApiVersion($"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroup}/providers/Microsoft.Web/sites/{webAppName}/continuouswebjobs/{webjobName}");
+
+            result.RequestUrl = _httpClient.BaseAddress != null
+                ? new Uri(_httpClient.BaseAddress, endpoint).ToString()
+                : endpoint;
+
+            _logger.LogInformation("Deleting continuous webjob {WebJobName} for {WebAppName} via ARM: {Endpoint}", webjobName, webAppName, endpoint);
+
+            using var response = await _httpClient.DeleteAsync(endpoint);
+            result.StatusCode = (int)response.StatusCode;
+            result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+            // 404 is OK for delete - means it's already not there
+            if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
+            {
+                result.ErrorMessage = $"ARM returned {response.StatusCode}";
+                _logger.LogError("Failed to delete continuous webjob {WebJobName}. Status: {StatusCode}, Response: {Response}",
+                    webjobName, response.StatusCode, result.ResponseBody);
+                return result;
+            }
+
+            result.Success = true;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            result.ErrorMessage = $"Exception: {ex.Message}";
+            _logger.LogError(ex, "Exception deleting continuous webjob {WebJobName} for {WebAppName}", webjobName, webAppName);
+            return result;
+        }
+    }
+
     #endregion
 
     #region Site Extensions
