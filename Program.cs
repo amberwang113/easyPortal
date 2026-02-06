@@ -14,6 +14,13 @@ builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("Api"))
 // Configure EasyAgent default settings
 builder.Services.Configure<EasyAgentSettings>(builder.Configuration.GetSection("EasyAgent"));
 
+// Register the DemoSettingsService for app-specific EasyAgent settings
+builder.Services.AddSingleton<DemoSettingsService>(sp =>
+{
+    var settings = builder.Configuration.GetSection("EasyAgent").Get<EasyAgentSettings>() ?? new EasyAgentSettings();
+    return new DemoSettingsService(settings);
+});
+
 // Register the ARM auth handler for DI
 builder.Services.AddTransient<AzureArmAuthHandler>();
 

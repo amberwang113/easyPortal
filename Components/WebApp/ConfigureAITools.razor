@@ -3,6 +3,7 @@
 @using Microsoft.Extensions.Options
 @inject ApiService ApiService
 @inject IOptions<EasyAgentSettings> EasyAgentConfig
+@inject DemoSettingsService DemoSettings
 
 <div class="card">
     <div class="card-title">AI Integration</div>
@@ -21,9 +22,9 @@
             </label>
             
             <label class="output-checkbox-item">
-                <input type="checkbox" @bind="endpointEnabled" />
-                <span class="output-checkbox-label">Endpoint</span>
-                <span class="output-checkbox-desc">REST API endpoint with AI-powered responses</span>
+                <input type="checkbox" @bind="agentEnabled" />
+                <span class="output-checkbox-label">Agent</span>
+                <span class="output-checkbox-desc">AI agent with chat endpoint and tool calling</span>
             </label>
             
             <label class="output-checkbox-item">
@@ -64,10 +65,10 @@
     </div>
 }
 
-@if (endpointEnabled)
+@if (agentEnabled)
 {
     <div class="card">
-        <div class="card-title">Endpoint Configuration</div>
+        <div class="card-title">Agent Configuration</div>
         
         <div class="form-group">
             <label class="form-label">Endpoint Path</label>
@@ -219,7 +220,7 @@
     </div>
 }
 
-@if (mcpServerEnabled || endpointEnabled || nlwebEnabled)
+@if (mcpServerEnabled || agentEnabled || nlwebEnabled)
 {
     <div style="margin-top: 20px;">
         <button class="btn btn-primary" @onclick="SaveConfiguration" disabled="@isSaving">
@@ -249,7 +250,7 @@
 }
 
 @* Show uninstall button when AI was previously configured but now all options are unchecked *@
-@if (!mcpServerEnabled && !endpointEnabled && !nlwebEnabled && wasAIConfigured)
+@if (!mcpServerEnabled && !agentEnabled && !nlwebEnabled && wasAIConfigured)
 {
     <div class="card" style="border-color: #d83b01;">
         <div class="card-title" style="color: #d83b01;">Uninstall AI Integration</div>
@@ -334,7 +335,7 @@
 
     // Output type toggles
     private bool mcpServerEnabled = false;
-    private bool endpointEnabled = false;
+    private bool agentEnabled = false;
     private bool nlwebEnabled = false;
     
     // Track if AI was previously configured (for showing uninstall option)
@@ -398,8 +399,8 @@
     {
         if (WebApp == null) return;
         
-        // Get default settings from configuration
-        var defaults = EasyAgentConfig.Value;
+        // Get app-specific settings (for demo apps like tasktimer, triptastic)
+        var defaults = DemoSettings.GetSettingsForApp(WebApp.Name);
         
         try
         {
@@ -408,7 +409,7 @@
             // Check which output types are enabled
             var outputTypes = envVars.FirstOrDefault(e => e.Name == "WEBSITE_EASYAGENT_OUTPUT_TYPES")?.Value ?? "";
             mcpServerEnabled = outputTypes.Contains("mcp-server");
-            endpointEnabled = outputTypes.Contains("endpoint");
+            agentEnabled = outputTypes.Contains("agent");
             nlwebEnabled = outputTypes.Contains("nlweb");
             
             // Load Foundry settings - use config defaults if not set in web app
@@ -497,7 +498,7 @@
             // Build output types string
             var outputTypes = new List<string>();
             if (mcpServerEnabled) outputTypes.Add("mcp-server");
-            if (endpointEnabled) outputTypes.Add("endpoint");
+            if (agentEnabled) outputTypes.Add("agent");
             if (nlwebEnabled) outputTypes.Add("nlweb");
             
             if (outputTypes.Any())
@@ -540,8 +541,8 @@
                     await ApiService.UninstallEasyMcpExtensionAsync(WebApp.Name);
                 }
                 
-                // Endpoint settings
-                if (endpointEnabled)
+                // Agent settings
+                if (agentEnabled)
                 {
                     SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_ENDPOINT_PATH", aiEndpointPath);
                     SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT", foundryEndpoint);
@@ -671,7 +672,7 @@
                     // Build dynamic success message based on what was installed
                     var installedExtensions = new List<string>();
                     if (mcpServerEnabled) installedExtensions.Add("EasyMCP");
-                    if (endpointEnabled) installedExtensions.Add("EasyAgent");
+                    if (agentEnabled) installedExtensions.Add("EasyAgent");
                     
                     if (installedExtensions.Any())
                     {
@@ -738,7 +739,7 @@
     private void Discard()
     {
         mcpServerEnabled = false;
-        endpointEnabled = false;
+        agentEnabled = false;
         nlwebEnabled = false;
         ragEnabled = false;
         toolsEnabled = false;
@@ -880,7 +881,7 @@
             // Update state
             wasAIConfigured = false;
             mcpServerEnabled = false;
-            endpointEnabled = false;
+            agentEnabled = false;
             nlwebEnabled = false;
             
             if (string.IsNullOrEmpty(detailedError))
