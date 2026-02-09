@@ -255,7 +255,7 @@
     <div class="card" style="border-color: #d83b01;">
         <div class="card-title" style="color: #d83b01;">Uninstall AI Integration</div>
         <div class="form-help" style="margin-bottom: 20px;">
-            AI integration was previously configured on this web app. Click below to completely remove all AI components including app settings, site extensions, managed identity, and the EasyAgentScraper webjob.
+            AI integration was previously configured on this web app. Click below to remove site extensions and the EasyAgentScraper webjob. App settings and managed identity will be preserved.
         </div>
         
         <div style="margin-top: 15px;">
@@ -518,6 +518,20 @@
                         SetEnvironmentVariable(envVarDict, "WEBSITE_EASYMCP_OPENAPI_SPEC", mcpOpenApiSpec);
                     }
                     
+                    // For TripTastic, add AAD auth settings required for MCP - only if not already set
+                    if (WebApp.Name.Contains("triptastic", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Only set auth settings if they don't already exist - never overwrite existing auth config
+                        if (!envVarDict.ContainsKey("WEBSITE_AUTH_AAD_ALLOWED_TENANTS"))
+                        {
+                            SetEnvironmentVariable(envVarDict, "WEBSITE_AUTH_AAD_ALLOWED_TENANTS", "72f988bf-86f1-41af-91ab-2d7cd011db47");
+                        }
+                        if (!envVarDict.ContainsKey("WEBSITE_AUTH_PRM_DEFAULT_WITH_SCOPES"))
+                        {
+                            SetEnvironmentVariable(envVarDict, "WEBSITE_AUTH_PRM_DEFAULT_WITH_SCOPES", "https://triptastic.azurewebsites.net/user_impersonation");
+                        }
+                    }
+                    
                     // Install EasyMCP site extension
                     saveMessage = "Installing EasyMCP extension...";
                     StateHasChanged();
@@ -532,12 +546,8 @@
                 }
                 else
                 {
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_ENDPOINT_PATH");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_NAME");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_DESCRIPTION");
-                    RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYMCP_OPENAPI_SPEC");
-                    
-                    // Uninstall EasyMCP extension
+                    // MCP disabled - just uninstall the extension
+                    // App settings are preserved - they will be overwritten when MCP is re-enabled
                     await ApiService.UninstallEasyMcpExtensionAsync(WebApp.Name);
                 }
                 
@@ -597,7 +607,9 @@
                         }
                         
                         // Assign User Assigned Managed Identity to the web app
-                        var identityResourceId = EasyAgentConfig.Value.UserAssignedIdentityResourceId;
+                        // Use app-specific identity from DemoSettings (e.g., triptastic-identity vs test-easy-agent3-identity)
+                        var appSettings = DemoSettings.GetSettingsForApp(WebApp.Name);
+                        var identityResourceId = appSettings.UserAssignedIdentityResourceId;
                         if (!string.IsNullOrEmpty(identityResourceId))
                         {
                             saveMessage = "Assigning managed identity...";
@@ -614,43 +626,15 @@
                     }
                     else
                     {
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_ENDPOINT_PATH");
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT");
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_AGENTID");
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL");
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL");
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_MANAGED_CLIENT_ID");
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_ENABLED");
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_CREATE_NEW");
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT");
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME");
-                        RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC");
-                    
-                        // Uninstall EasyAgent extension when Endpoint is disabled
-                                await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
+                        // Agent disabled - just uninstall the extension
+                        // App settings are preserved - they will be overwritten when Agent is re-enabled
+                        await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
                             }
                         }
                         else
             {
-                // Remove all AI-related environment variables
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_OUTPUT_TYPES");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_ENDPOINT_PATH");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_AGENTID");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_ENABLED");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_CREATE_NEW");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_MANAGED_CLIENT_ID");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_ENDPOINT_PATH");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_NAME");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_DESCRIPTION");
-                RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYMCP_OPENAPI_SPEC");
-                
-                // Uninstall site extensions
+                // When all AI features are disabled, just uninstall the site extensions
+                // App settings are preserved - they will be overwritten when extensions are re-added
                 saveMessage = "Removing AI extensions...";
                 StateHasChanged();
                 
@@ -786,11 +770,11 @@
     }
 
     /// <summary>
-    /// Completely uninstalls AI integration from the web app:
-    /// 1. Deletes all app settings starting with WEBSITE_EASYMCP_* or WEBSITE_EASYAGENT_*
-    /// 2. Removes the associated user assigned managed identity
-    /// 3. Uninstalls both EasyAgent and EasyMCP site extensions
-    /// 4. Deletes the EasyAgentScraper webjob
+    /// Uninstalls AI integration components from the web app:
+    /// 1. Uninstalls both EasyAgent and EasyMCP site extensions
+    /// 2. Deletes the EasyAgentScraper webjob
+    /// Note: App settings are NOT deleted - they will be overwritten when extensions are re-added.
+    /// Note: The managed identity is intentionally NOT removed to preserve access to Azure resources.
     /// </summary>
     private async Task UninstallAIIntegration()
     {
@@ -803,46 +787,7 @@
         
         try
         {
-            // Step 1: Remove all AI-related app settings
-            saveMessage = "Removing AI app settings...";
-            StateHasChanged();
-            
-            var existingVars = await ApiService.GetEnvironmentVariablesAsync(WebApp.Name);
-            var envVarDict = existingVars.ToDictionary(e => e.Name, e => e);
-            
-            // Find and remove all WEBSITE_EASYMCP_* and WEBSITE_EASYAGENT_* settings
-            var keysToRemove = envVarDict.Keys
-                .Where(k => k.StartsWith("WEBSITE_EASYMCP_") || k.StartsWith("WEBSITE_EASYAGENT_") || k == "WEBSITE_MANAGED_CLIENT_ID" || k == "WEBSITE_MCP_ENDPOINT_PATH" || k == "WEBSITE_MCP_SERVER_NAME" || k == "WEBSITE_MCP_SERVER_DESCRIPTION")
-                .ToList();
-            
-            foreach (var key in keysToRemove)
-            {
-                envVarDict.Remove(key);
-            }
-            
-            var allVars = envVarDict.Values.ToList();
-            var settingsSaved = await ApiService.SaveEnvironmentVariablesAsync(WebApp.Name, allVars);
-            
-            if (!settingsSaved)
-            {
-                detailedError += "Failed to remove app settings.\n";
-            }
-            
-            // Step 2: Remove the user assigned managed identity
-            var identityResourceId = EasyAgentConfig.Value.UserAssignedIdentityResourceId;
-            if (!string.IsNullOrEmpty(identityResourceId))
-            {
-                saveMessage = "Removing managed identity...";
-                StateHasChanged();
-                
-                var identityResult = await ApiService.RemoveUserIdentityAsync(WebApp.Name, identityResourceId);
-                if (!identityResult.Success)
-                {
-                    detailedError += FormatIdentityError("Identity Removal", identityResult) + "\n";
-                }
-            }
-            
-            // Step 3: Uninstall both site extensions
+            // Step 1: Uninstall both site extensions
             saveMessage = "Uninstalling EasyAgent extension...";
             StateHasChanged();
             
@@ -861,7 +806,7 @@
                 detailedError += FormatExtensionError("EasyMCP Uninstall", mcpResult) + "\n";
             }
             
-            // Step 4: Delete the EasyAgentScraper webjob (try both triggered and continuous)
+            // Step 2: Delete the EasyAgentScraper webjob (try both triggered and continuous)
             saveMessage = "Deleting EasyAgentScraper webjob...";
             StateHasChanged();
             
