@@ -863,6 +863,7 @@ public class ApiService
 
     #region Site Extensions
 
+        // Site extensions API - use 2025-03-01 which is required for the siteextensions resource type
         private const string SiteExtensionsApiVersion = "2025-03-01";
 
         private string WithApiVersion(string endpoint, string apiVersion)
@@ -899,7 +900,7 @@ public class ApiService
 
             try
             {
-                if (!HasArmSiteExtensionSettings(out _, out _))
+                if (!HasArmSiteExtensionSettings(out var subscriptionId, out var resourceGroup))
                 {
                     result.ErrorMessage = "Subscription ID or Resource Group not configured";
                     return result;
@@ -913,17 +914,35 @@ public class ApiService
                     : endpoint;
 
                 _logger.LogInformation("Installing site extension {SiteExtensionId} for {WebAppName} via ARM: {Endpoint}", siteExtensionId, webAppName, endpoint);
+                _logger.LogInformation("Using SubscriptionId={SubscriptionId}, ResourceGroup={ResourceGroup}, ApiVersion={ApiVersion}", 
+                    subscriptionId, resourceGroup, SiteExtensionsApiVersion);
 
-                // ARM expects a JSON body for PUT; an empty object works for this resource.
-                using var response = await _httpClient.PutAsJsonAsync(endpoint, new { });
+                // ARM PUT for site extensions - send empty JSON body
+                var request = new HttpRequestMessage(HttpMethod.Put, endpoint);
+                request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+                
+                using var response = await _httpClient.SendAsync(request);
                 result.StatusCode = (int)response.StatusCode;
                 result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+                _logger.LogInformation("ARM response for {SiteExtensionId}: StatusCode={StatusCode}, Body={Body}", 
+                    siteExtensionId, response.StatusCode, result.ResponseBody);
 
                 if (!response.IsSuccessStatusCode)
                 {
                     result.ErrorMessage = $"ARM returned {response.StatusCode}";
                     _logger.LogError("Failed to install site extension {SiteExtensionId}. Status: {StatusCode}, Response: {Response}",
                         siteExtensionId, response.StatusCode, result.ResponseBody);
+                    return result;
+                }
+
+                // ARM might return 200/201 but installation could still fail
+                // Check if the response contains error info
+                if (!string.IsNullOrEmpty(result.ResponseBody) && 
+                    (result.ResponseBody.Contains("\"error\"") || result.ResponseBody.Contains("\"provisioningState\":\"Failed\"")))
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"ARM returned {response.StatusCode} but response indicates failure";
                     return result;
                 }
 
@@ -1026,7 +1045,23 @@ public class ApiService
         /// </summary>
         public async Task<SiteExtensionResult> InstallEasyAgentExtensionAsync(string webAppName)
         {
-            return await PutArmSiteExtensionAsync(webAppName, "EasyAgent");
+            // Try ARM API first, fall back to Kudu SCM if it fails
+            var armResult = await PutArmSiteExtensionAsync(webAppName, "EasyAgent");
+            if (armResult.Success)
+            {
+                return armResult;
+            }
+            
+            // Fall back to Kudu SCM API
+            _logger.LogWarning("ARM API failed for EasyAgent install (Status: {StatusCode}), falling back to Kudu SCM API", armResult.StatusCode);
+            var scmResult = await PutScmSiteExtensionAsync(webAppName, "EasyAgent");
+            
+            // Return the SCM result, but include ARM error info if SCM also fails
+            if (!scmResult.Success)
+            {
+                scmResult.ErrorMessage = $"ARM failed: {armResult.ErrorMessage}. SCM failed: {scmResult.ErrorMessage}";
+            }
+            return scmResult;
         }
 
         /// <summary>
@@ -1042,16 +1077,40 @@ public class ApiService
         /// </summary>
         public async Task<SiteExtensionResult> UninstallEasyAgentExtensionAsync(string webAppName)
         {
+            // Try Kudu SCM API first (more reliable), fall back to ARM
+            var scmResult = await DeleteScmSiteExtensionAsync(webAppName, "EasyAgent");
+            if (scmResult.Success || scmResult.StatusCode == 404)
+            {
+                return scmResult;
+            }
+            
+            // Fall back to ARM API
+            _logger.LogWarning("Kudu SCM API failed, falling back to ARM API for EasyAgent uninstall");
             return await DeleteArmSiteExtensionAsync(webAppName, "EasyAgent");
         }
 
         /// <summary>
-        /// Installs the EasyMCP site extension on a web app via the Kudu SCM API
-        /// PUT https://{scm-url}/api/siteextensions/EasyMCP
+        /// Installs the EasyMCP site extension on a web app
         /// </summary>
         public async Task<SiteExtensionResult> InstallEasyMcpExtensionAsync(string webAppName)
         {
-            return await PutArmSiteExtensionAsync(webAppName, "EasyMCP");
+            // Try ARM API first, fall back to Kudu SCM if it fails
+            var armResult = await PutArmSiteExtensionAsync(webAppName, "EasyMCP");
+            if (armResult.Success)
+            {
+                return armResult;
+            }
+            
+            // Fall back to Kudu SCM API
+            _logger.LogWarning("ARM API failed for EasyMCP install (Status: {StatusCode}), falling back to Kudu SCM API", armResult.StatusCode);
+            var scmResult = await PutScmSiteExtensionAsync(webAppName, "EasyMCP");
+            
+            // Return the SCM result, but include ARM error info if SCM also fails
+            if (!scmResult.Success)
+            {
+                scmResult.ErrorMessage = $"ARM failed: {armResult.ErrorMessage}. SCM failed: {scmResult.ErrorMessage}";
+            }
+            return scmResult;
         }
 
         /// <summary>
@@ -1067,7 +1126,121 @@ public class ApiService
         /// </summary>
         public async Task<SiteExtensionResult> UninstallEasyMcpExtensionAsync(string webAppName)
         {
+            // Try Kudu SCM API first (more reliable), fall back to ARM
+            var scmResult = await DeleteScmSiteExtensionAsync(webAppName, "EasyMCP");
+            if (scmResult.Success || scmResult.StatusCode == 404)
+            {
+                return scmResult;
+            }
+            
+            // Fall back to ARM API
+            _logger.LogWarning("Kudu SCM API failed, falling back to ARM API for EasyMCP uninstall");
             return await DeleteArmSiteExtensionAsync(webAppName, "EasyMCP");
+        }
+
+        /// <summary>
+        /// Installs a site extension via the Kudu SCM API
+        /// PUT https://{scm-url}/api/siteextensions/{extensionId}
+        /// </summary>
+        private async Task<SiteExtensionResult> PutScmSiteExtensionAsync(string webAppName, string siteExtensionId)
+        {
+            var result = new SiteExtensionResult { Method = "PUT (Kudu SCM API)" };
+
+            try
+            {
+                var credentials = await GetPublishingCredentialsAsync(webAppName);
+                if (credentials == null || string.IsNullOrEmpty(credentials.ScmUrl))
+                {
+                    result.ErrorMessage = "Could not retrieve SCM credentials or URL";
+                    _logger.LogWarning("Could not retrieve SCM credentials for {WebAppName}", webAppName);
+                    return result;
+                }
+
+                result.CredentialsUsed = $"User: {credentials.UserName}, ScmUrl: {credentials.ScmUrl}";
+
+                using var scmClient = CreateScmClient(credentials.UserName, credentials.Password);
+                var scmEndpoint = $"{credentials.ScmUrl}/api/siteextensions/{siteExtensionId}";
+                result.RequestUrl = scmEndpoint;
+
+                _logger.LogInformation("Installing site extension {SiteExtensionId} via Kudu SCM: {Endpoint}", siteExtensionId, scmEndpoint);
+
+                // Kudu SCM API expects PUT with empty body or no body
+                var request = new HttpRequestMessage(HttpMethod.Put, scmEndpoint);
+                request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+                
+                using var response = await scmClient.SendAsync(request);
+                result.StatusCode = (int)response.StatusCode;
+                result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    result.ErrorMessage = $"Kudu SCM returned {response.StatusCode}";
+                    _logger.LogError("Failed to install site extension {SiteExtensionId} via SCM. Status: {StatusCode}, Response: {Response}",
+                        siteExtensionId, response.StatusCode, result.ResponseBody);
+                    return result;
+                }
+
+                result.Success = true;
+                _logger.LogInformation("Successfully installed site extension {SiteExtensionId} via Kudu SCM", siteExtensionId);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = $"Exception: {ex.Message}";
+                _logger.LogError(ex, "Exception installing site extension {SiteExtensionId} via SCM for {WebAppName}", siteExtensionId, webAppName);
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Deletes a site extension via the Kudu SCM API (more reliable than ARM for site extensions)
+        /// DELETE https://{scm-url}/api/siteextensions/{extensionId}
+        /// </summary>
+        private async Task<SiteExtensionResult> DeleteScmSiteExtensionAsync(string webAppName, string siteExtensionId)
+        {
+            var result = new SiteExtensionResult { Method = "DELETE (Kudu SCM API)" };
+
+            try
+            {
+                var credentials = await GetPublishingCredentialsAsync(webAppName);
+                if (credentials == null || string.IsNullOrEmpty(credentials.ScmUrl))
+                {
+                    result.ErrorMessage = "Could not retrieve SCM credentials or URL";
+                    _logger.LogWarning("Could not retrieve SCM credentials for {WebAppName}", webAppName);
+                    return result;
+                }
+
+                result.CredentialsUsed = $"User: {credentials.UserName}, ScmUrl: {credentials.ScmUrl}";
+
+                using var scmClient = CreateScmClient(credentials.UserName, credentials.Password);
+                var scmEndpoint = $"{credentials.ScmUrl}/api/siteextensions/{siteExtensionId}";
+                result.RequestUrl = scmEndpoint;
+
+                _logger.LogInformation("Deleting site extension {SiteExtensionId} via Kudu SCM: {Endpoint}", siteExtensionId, scmEndpoint);
+
+                using var response = await scmClient.DeleteAsync(scmEndpoint);
+                result.StatusCode = (int)response.StatusCode;
+                result.ResponseBody = await response.Content.ReadAsStringAsync();
+
+                // 404 is OK for delete - means it's already not there
+                if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
+                {
+                    result.ErrorMessage = $"Kudu SCM returned {response.StatusCode}";
+                    _logger.LogError("Failed to delete site extension {SiteExtensionId} via SCM. Status: {StatusCode}, Response: {Response}",
+                        siteExtensionId, response.StatusCode, result.ResponseBody);
+                    return result;
+                }
+
+                result.Success = true;
+                _logger.LogInformation("Successfully deleted site extension {SiteExtensionId} via Kudu SCM", siteExtensionId);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.ErrorMessage = $"Exception: {ex.Message}";
+                _logger.LogError(ex, "Exception deleting site extension {SiteExtensionId} via SCM for {WebAppName}", siteExtensionId, webAppName);
+                return result;
+            }
         }
 
         /// <summary>

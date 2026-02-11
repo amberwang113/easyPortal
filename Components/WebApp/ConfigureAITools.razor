@@ -242,8 +242,8 @@
     
     @if (!string.IsNullOrEmpty(detailedError))
     {
-        <div class="alert alert-error" style="margin-top: 15px;">
-            <div style="font-weight: 600; margin-bottom: 8px;">Extension Installation Error Details:</div>
+        <div class="alert alert-info" style="margin-top: 15px;">
+            <div style="font-weight: 600; margin-bottom: 8px;">Operation Details:</div>
             <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;">@detailedError</pre>
         </div>
     }
@@ -490,6 +490,10 @@
         detailedError = string.Empty;
         StateHasChanged();
         
+        // Track all operations for detailed logging
+        var operationLog = new System.Text.StringBuilder();
+        var hasExtensionErrors = false;
+        
         try
         {
             var existingVars = await ApiService.GetEnvironmentVariablesAsync(WebApp.Name);
@@ -512,10 +516,10 @@
                     SetEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_NAME", mcpServerName);
                     SetEnvironmentVariable(envVarDict, "WEBSITE_MCP_SERVER_DESCRIPTION", mcpServerDescription);
                     
-                    // Set the MCP OpenAPI spec
+                    // Set the MCP OpenAPI spec - preserve existing if set
                     if (!string.IsNullOrEmpty(mcpOpenApiSpec))
                     {
-                        SetEnvironmentVariable(envVarDict, "WEBSITE_EASYMCP_OPENAPI_SPEC", mcpOpenApiSpec);
+                        SetEnvironmentVariableIfNotExists(envVarDict, "WEBSITE_EASYMCP_OPENAPI_SPEC", mcpOpenApiSpec);
                     }
                     
                     // For TripTastic, add AAD auth settings required for MCP - only if not already set
@@ -537,37 +541,50 @@
                     StateHasChanged();
                     
                     var mcpResult = await ApiService.InstallEasyMcpExtensionAsync(WebApp.Name);
+                    operationLog.AppendLine($"EasyMCP Install: Success={mcpResult.Success}, StatusCode={mcpResult.StatusCode}, Method={mcpResult.Method}");
+                    operationLog.AppendLine($"  URL: {mcpResult.RequestUrl}");
+                    if (!string.IsNullOrEmpty(mcpResult.ResponseBody))
+                    {
+                        // Truncate very long responses but show enough to diagnose
+                        var responsePreview = mcpResult.ResponseBody.Length > 500 
+                            ? mcpResult.ResponseBody.Substring(0, 500) + "..." 
+                            : mcpResult.ResponseBody;
+                        operationLog.AppendLine($"  Response: {responsePreview}");
+                    }
                     if (!mcpResult.Success)
                     {
-                        saveMessage = "Warning: Failed to install EasyMCP extension.";
-                        saveMessageClass = "alert alert-warning";
-                        detailedError = FormatExtensionError("EasyMCP Install", mcpResult);
+                        hasExtensionErrors = true;
+                        operationLog.AppendLine($"  Error: {mcpResult.ErrorMessage}");
                     }
                 }
                 else
                 {
                     // MCP disabled - just uninstall the extension
-                    // App settings are preserved - they will be overwritten when MCP is re-enabled
-                    await ApiService.UninstallEasyMcpExtensionAsync(WebApp.Name);
+                    var uninstallResult = await ApiService.UninstallEasyMcpExtensionAsync(WebApp.Name);
+                    operationLog.AppendLine($"EasyMCP Uninstall: Success={uninstallResult.Success}, StatusCode={uninstallResult.StatusCode}");
                 }
                 
                 // Agent settings
                 if (agentEnabled)
                 {
                     SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_ENDPOINT_PATH", aiEndpointPath);
-                    SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT", foundryEndpoint);
-                    SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_AGENTID", foundryAgentId);
-                    SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL", chatModel);
-                    SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL", embeddingModel);
-                    SetEnvironmentVariable(envVarDict, "WEBSITE_MANAGED_CLIENT_ID", managedClientId);
+                    
+                    // Use SetEnvironmentVariableIfNotExists for settings that should preserve existing Azure values
+                    // These are only set if they don't already exist in Azure
+                    SetEnvironmentVariableIfNotExists(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_ENDPOINT", foundryEndpoint);
+                    SetEnvironmentVariableIfNotExists(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_AGENTID", foundryAgentId);
+                    SetEnvironmentVariableIfNotExists(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_CHAT_MODEL", chatModel);
+                    SetEnvironmentVariableIfNotExists(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_EMBEDDING_MODEL", embeddingModel);
+                    SetEnvironmentVariableIfNotExists(envVarDict, "WEBSITE_MANAGED_CLIENT_ID", managedClientId);
                     
                     if (ragEnabled)
                     {
                         SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_RAG_ENABLED", "true");
                         if (ragOption == "existing")
                         {
-                            SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT", cosmosDbEndpoint);
-                            SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME", cosmosDbName);
+                            // Use SetEnvironmentVariableIfNotExists to preserve existing Cosmos DB settings
+                            SetEnvironmentVariableIfNotExists(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_ENDPOINT", cosmosDbEndpoint);
+                            SetEnvironmentVariableIfNotExists(envVarDict, "WEBSITE_EASYAGENT_SITECONTEXT_DB_NAME", cosmosDbName);
                         }
                         else
                         {
@@ -586,70 +603,87 @@
                     }
                     
                     if (toolsEnabled && !string.IsNullOrEmpty(openApiSpec))
-                        {
-                            SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC", openApiSpec);
-                        }
-                        else
-                        {
-                            RemoveEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC");
-                        }
+                    {
+                        // Use SetEnvironmentVariableIfNotExists to preserve existing OpenAPI spec
+                        SetEnvironmentVariableIfNotExists(envVarDict, "WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC", openApiSpec);
+                    }
+                    // Don't remove WEBSITE_EASYAGENT_FOUNDRY_OPENAPISPEC if toolsEnabled is false
+                    // The existing value should be preserved
                     
-                        // Install EasyAgent site extension (only for Endpoint mode)
-                        saveMessage = "Installing EasyAgent extension...";
+                    // Install EasyAgent site extension
+                    saveMessage = "Installing EasyAgent extension...";
+                    StateHasChanged();
+                    
+                    var agentResult = await ApiService.InstallEasyAgentExtensionAsync(WebApp.Name);
+                    operationLog.AppendLine($"EasyAgent Install: Success={agentResult.Success}, StatusCode={agentResult.StatusCode}, Method={agentResult.Method}");
+                    operationLog.AppendLine($"  URL: {agentResult.RequestUrl}");
+                    if (!string.IsNullOrEmpty(agentResult.ResponseBody))
+                    {
+                        // Truncate very long responses but show enough to diagnose
+                        var responsePreview = agentResult.ResponseBody.Length > 500 
+                            ? agentResult.ResponseBody.Substring(0, 500) + "..." 
+                            : agentResult.ResponseBody;
+                        operationLog.AppendLine($"  Response: {responsePreview}");
+                    }
+                    if (!agentResult.Success)
+                    {
+                        hasExtensionErrors = true;
+                        operationLog.AppendLine($"  Error: {agentResult.ErrorMessage}");
+                    }
+                    
+                    // Assign User Assigned Managed Identity to the web app
+                    var appSettings = DemoSettings.GetSettingsForApp(WebApp.Name);
+                    var identityResourceId = appSettings.UserAssignedIdentityResourceId;
+                    if (!string.IsNullOrEmpty(identityResourceId))
+                    {
+                        saveMessage = "Assigning managed identity...";
                         StateHasChanged();
-                    
-                        var agentResult = await ApiService.InstallEasyAgentExtensionAsync(WebApp.Name);
-                        if (!agentResult.Success)
-                        {
-                            saveMessage = "Warning: Failed to install EasyAgent extension.";
-                            saveMessageClass = "alert alert-warning";
-                            detailedError += (string.IsNullOrEmpty(detailedError) ? "" : "\n\n") + FormatExtensionError("EasyAgent Install", agentResult);
-                        }
                         
-                        // Assign User Assigned Managed Identity to the web app
-                        // Use app-specific identity from DemoSettings (e.g., triptastic-identity vs test-easy-agent3-identity)
-                        var appSettings = DemoSettings.GetSettingsForApp(WebApp.Name);
-                        var identityResourceId = appSettings.UserAssignedIdentityResourceId;
-                        if (!string.IsNullOrEmpty(identityResourceId))
+                        var identityResult = await ApiService.AssignUserIdentityAsync(WebApp.Name, identityResourceId);
+                        operationLog.AppendLine($"Identity Assignment: Success={identityResult.Success}, StatusCode={identityResult.StatusCode}");
+                        if (!identityResult.Success)
                         {
-                            saveMessage = "Assigning managed identity...";
-                            StateHasChanged();
-                            
-                            var identityResult = await ApiService.AssignUserIdentityAsync(WebApp.Name, identityResourceId);
-                            if (!identityResult.Success)
-                            {
-                                saveMessage = "Warning: Failed to assign managed identity.";
-                                saveMessageClass = "alert alert-warning";
-                                detailedError += (string.IsNullOrEmpty(detailedError) ? "" : "\n\n") + FormatIdentityError("Identity Assignment", identityResult);
-                            }
+                            hasExtensionErrors = true;
+                            operationLog.AppendLine($"  Error: {identityResult.ErrorMessage}");
                         }
                     }
-                    else
-                    {
-                        // Agent disabled - just uninstall the extension
-                        // App settings are preserved - they will be overwritten when Agent is re-enabled
-                        await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
-                            }
-                        }
-                        else
+                }
+                else
+                {
+                    // Agent disabled - just uninstall the extension
+                    var uninstallResult = await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
+                    operationLog.AppendLine($"EasyAgent Uninstall: Success={uninstallResult.Success}, StatusCode={uninstallResult.StatusCode}");
+                }
+            }
+            else
             {
                 // When all AI features are disabled, just uninstall the site extensions
-                // App settings are preserved - they will be overwritten when extensions are re-added
                 saveMessage = "Removing AI extensions...";
                 StateHasChanged();
                 
-                await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
-                await ApiService.UninstallEasyMcpExtensionAsync(WebApp.Name);
+                var agentUninstall = await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
+                operationLog.AppendLine($"EasyAgent Uninstall: Success={agentUninstall.Success}, StatusCode={agentUninstall.StatusCode}");
+                
+                var mcpUninstall = await ApiService.UninstallEasyMcpExtensionAsync(WebApp.Name);
+                operationLog.AppendLine($"EasyMCP Uninstall: Success={mcpUninstall.Success}, StatusCode={mcpUninstall.StatusCode}");
             }
             
-            // Save environment variables
-            saveMessage = "Saving configuration...";
+            // Save environment variables (this will trigger a site restart)
+            saveMessage = "Saving configuration and restarting website...";
             StateHasChanged();
+            
+            // Ensure WEBSITE_EASYAGENT_OUTPUT_TYPES is set last to trigger site restart after extensions are installed
+            var outputTypesValue = outputTypes.Any() ? string.Join(",", outputTypes) : "";
+            SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_OUTPUT_TYPES", outputTypesValue);
             
             var allVars = envVarDict.Values.ToList();
             var success = await ApiService.SaveEnvironmentVariablesAsync(WebApp.Name, allVars);
+            operationLog.AppendLine($"Save Environment Variables: Success={success}");
             
-            if (success)
+            // Always show operation log
+            detailedError = operationLog.ToString();
+            
+            if (success && !hasExtensionErrors)
             {
                 if (outputTypes.Any())
                 {
@@ -660,18 +694,24 @@
                     
                     if (installedExtensions.Any())
                     {
-                        saveMessage = $"AI configuration saved and {string.Join(" and ", installedExtensions)} extension(s) installed successfully!";
+                        saveMessage = $"AI configuration saved and {string.Join(" and ", installedExtensions)} extension(s) installed successfully! Website is restarting...";
                     }
                     else
                     {
-                        saveMessage = "AI configuration saved successfully!";
+                        saveMessage = "AI configuration saved successfully! Website is restarting...";
                     }
                 }
                 else
                 {
-                    saveMessage = "AI configuration removed successfully!";
+                    saveMessage = "AI configuration removed successfully! Website is restarting...";
                 }
                 saveMessageClass = "alert alert-success";
+                await OnSave.InvokeAsync();
+            }
+            else if (success && hasExtensionErrors)
+            {
+                saveMessage = "Configuration saved but some extensions failed to install. Check details below.";
+                saveMessageClass = "alert alert-warning";
                 await OnSave.InvokeAsync();
             }
             else
@@ -685,6 +725,7 @@
             Console.WriteLine($"Error saving configuration: {ex.Message}");
             saveMessage = $"Error saving configuration: {ex.Message}";
             saveMessageClass = "alert alert-error";
+            detailedError = operationLog.ToString() + "\n\nException: " + ex.Message;
         }
         finally
         {
@@ -709,6 +750,18 @@
                 IsSlotSetting = false,
                 IsValueHidden = true
             };
+        }
+    }
+    
+    /// <summary>
+    /// Sets an environment variable only if it doesn't already exist.
+    /// Use this for settings that should not overwrite existing values.
+    /// </summary>
+    private void SetEnvironmentVariableIfNotExists(Dictionary<string, EnvironmentVariable> envVars, string name, string value)
+    {
+        if (!envVars.ContainsKey(name) || string.IsNullOrEmpty(envVars[name].Value))
+        {
+            SetEnvironmentVariable(envVars, name, value);
         }
     }
     
@@ -785,6 +838,9 @@
         detailedError = string.Empty;
         StateHasChanged();
         
+        // Collect all operation results for display
+        var operationLog = new System.Text.StringBuilder();
+        
         try
         {
             // Step 1: Uninstall both site extensions
@@ -792,6 +848,7 @@
             StateHasChanged();
             
             var agentResult = await ApiService.UninstallEasyAgentExtensionAsync(WebApp.Name);
+            operationLog.AppendLine($"EasyAgent Uninstall: Success={agentResult.Success}, StatusCode={agentResult.StatusCode}, URL={agentResult.RequestUrl}");
             if (!agentResult.Success)
             {
                 detailedError += FormatExtensionError("EasyAgent Uninstall", agentResult) + "\n";
@@ -801,6 +858,7 @@
             StateHasChanged();
             
             var mcpResult = await ApiService.UninstallEasyMcpExtensionAsync(WebApp.Name);
+            operationLog.AppendLine($"EasyMCP Uninstall: Success={mcpResult.Success}, StatusCode={mcpResult.StatusCode}, URL={mcpResult.RequestUrl}");
             if (!mcpResult.Success)
             {
                 detailedError += FormatExtensionError("EasyMCP Uninstall", mcpResult) + "\n";
@@ -811,7 +869,10 @@
             StateHasChanged();
             
             var triggeredResult = await ApiService.DeleteTriggeredWebJobAsync(WebApp.Name, "EasyAgentScraper");
+            operationLog.AppendLine($"Triggered WebJob Delete: Success={triggeredResult.Success}, StatusCode={triggeredResult.StatusCode}");
+            
             var continuousResult = await ApiService.DeleteContinuousWebJobAsync(WebApp.Name, "EasyAgentScraper");
+            operationLog.AppendLine($"Continuous WebJob Delete: Success={continuousResult.Success}, StatusCode={continuousResult.StatusCode}");
             
             // Only report error if both failed (webjob might be either type)
             if (!triggeredResult.Success && !continuousResult.Success)
@@ -823,20 +884,37 @@
                 }
             }
             
+            // Step 3: Clear the output types setting to trigger a site restart
+            saveMessage = "Restarting website...";
+            StateHasChanged();
+            
+            var existingVars = await ApiService.GetEnvironmentVariablesAsync(WebApp.Name);
+            var envVarDict = existingVars.ToDictionary(e => e.Name, e => e);
+            
+            // Set WEBSITE_EASYAGENT_OUTPUT_TYPES to empty to indicate AI is disabled and trigger restart
+            SetEnvironmentVariable(envVarDict, "WEBSITE_EASYAGENT_OUTPUT_TYPES", "");
+            
+            var allVars = envVarDict.Values.ToList();
+            var saveResult = await ApiService.SaveEnvironmentVariablesAsync(WebApp.Name, allVars);
+            operationLog.AppendLine($"Save Environment Variables: Success={saveResult}");
+            
             // Update state
             wasAIConfigured = false;
             mcpServerEnabled = false;
             agentEnabled = false;
             nlwebEnabled = false;
             
-            if (string.IsNullOrEmpty(detailedError))
+            // Always show operation log so user can see what happened
+            detailedError = operationLog.ToString() + (string.IsNullOrEmpty(detailedError) ? "" : "\n\nErrors:\n" + detailedError);
+            
+            if (agentResult.Success && mcpResult.Success && saveResult)
             {
                 saveMessage = "AI integration uninstalled successfully!";
                 saveMessageClass = "alert alert-success";
             }
             else
             {
-                saveMessage = "AI integration uninstalled with some warnings. Check details below.";
+                saveMessage = "AI integration uninstall completed with some issues. Check details below.";
                 saveMessageClass = "alert alert-warning";
             }
             
@@ -847,6 +925,7 @@
             Console.WriteLine($"Error uninstalling AI integration: {ex.Message}");
             saveMessage = $"Error uninstalling AI integration: {ex.Message}";
             saveMessageClass = "alert alert-error";
+            detailedError = operationLog.ToString() + "\n\nException: " + ex.Message;
         }
         finally
         {
